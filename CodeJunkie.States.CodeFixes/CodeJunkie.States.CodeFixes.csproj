@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>CodeJunkie.States.CodeFixes</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <NoWarn>NU5128</NoWarn>
+    <OutputPath>./nupkg</OutputPath>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <DebugType>portable</DebugType>
+
+    <Title>LogicBlocks CodeFixes</Title>
+    <Version>1.0.0</Version>
+    <Description>LogicBlocks code fixes.</Description>
+    <Copyright>© 2025 codejunkie</Copyright>
+    <Authors>codejunkie</Authors>
+    <Company>codejunkie</Company>
+
+    <PackageId>CodeJunkie.States.CodeFixes</PackageId>
+    <PackageReleaseNotes>LogicBlocks CodeFixes release.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <!-- The following libraries include the types we need -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.11.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- This ensures the library will be packaged as an analyzer when we use `dotnet pack` -->
+  <ItemGroup>
+    <None Include="$(OutputPath)/$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+</Project>

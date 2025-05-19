@@ -1,0 +1,12 @@
+**/coverage/*
+!**/coverage/.gdignore
+nupkg/
+bin/
+obj/
+.generated/
+.vs/
+.DS_Store
+*.DotSettings.user
+*.binlog
+.idea
+.run

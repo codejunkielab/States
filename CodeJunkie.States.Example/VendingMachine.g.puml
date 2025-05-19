@@ -1,0 +1,32 @@
+@startuml VendingMachine
+state "VendingMachine State" as CodeJunkie_States_Example_VendingMachine_State {
+  state "SelectionEditable" as CodeJunkie_States_Example_VendingMachine_SelectionEditable {
+    state "Idle" as CodeJunkie_States_Example_VendingMachine_Idle
+    state "TransactionActive" as CodeJunkie_States_Example_VendingMachine_TransactionActive {
+      state "TransactionStarted" as CodeJunkie_States_Example_VendingMachine_TransactionStarted
+    }
+  }
+  state "Vending" as CodeJunkie_States_Example_VendingMachine_Vending
+}
+
+CodeJunkie_States_Example_VendingMachine_Idle --> CodeJunkie_States_Example_VendingMachine_Idle : PaymentReceived
+CodeJunkie_States_Example_VendingMachine_SelectionEditable --> CodeJunkie_States_Example_VendingMachine_SelectionEditable : SelectionEntered
+CodeJunkie_States_Example_VendingMachine_SelectionEditable --> CodeJunkie_States_Example_VendingMachine_TransactionStarted : SelectionEntered
+CodeJunkie_States_Example_VendingMachine_TransactionActive --> CodeJunkie_States_Example_VendingMachine_Idle : TransactionTimedOut
+CodeJunkie_States_Example_VendingMachine_TransactionActive --> CodeJunkie_States_Example_VendingMachine_TransactionActive : PaymentReceived
+CodeJunkie_States_Example_VendingMachine_TransactionActive --> CodeJunkie_States_Example_VendingMachine_Vending : PaymentReceived
+CodeJunkie_States_Example_VendingMachine_TransactionStarted --> CodeJunkie_States_Example_VendingMachine_TransactionStarted : SelectionEntered
+CodeJunkie_States_Example_VendingMachine_Vending --> CodeJunkie_States_Example_VendingMachine_Idle : VendingCompleted
+
+CodeJunkie_States_Example_VendingMachine_Idle : OnEnter → ClearTransactionTimeOutTimer
+CodeJunkie_States_Example_VendingMachine_Idle : OnPaymentReceived → MakeChange
+CodeJunkie_States_Example_VendingMachine_SelectionEditable : OnSelectionEntered → RestartTransactionTimeOutTimer
+CodeJunkie_States_Example_VendingMachine_TransactionActive : OnEnter → RestartTransactionTimeOutTimer
+CodeJunkie_States_Example_VendingMachine_TransactionActive : OnPaymentReceived → MakeChange, RestartTransactionTimeOutTimer, TransactionCompleted
+CodeJunkie_States_Example_VendingMachine_TransactionActive : OnTransactionTimedOut → MakeChange
+CodeJunkie_States_Example_VendingMachine_TransactionStarted : OnEnter → TransactionStarted
+CodeJunkie_States_Example_VendingMachine_TransactionStarted : OnSelectionEntered → RestartTransactionTimeOutTimer
+CodeJunkie_States_Example_VendingMachine_Vending : OnEnter → BeginVending
+
+[*] --> CodeJunkie_States_Example_VendingMachine_Idle
+@enduml

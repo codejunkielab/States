@@ -1,0 +1,14 @@
+@startuml TimerStates
+state "TimerStates State" as CodeJunkie_States_Tutorial_TimerStates_State {
+  state "PoweredOff" as CodeJunkie_States_Tutorial_TimerStates_State_PoweredOff
+  state "PoweredOn" as CodeJunkie_States_Tutorial_TimerStates_State_PoweredOn
+}
+
+CodeJunkie_States_Tutorial_TimerStates_State_PoweredOff --> CodeJunkie_States_Tutorial_TimerStates_State_PoweredOn : PowerButtonPressed
+CodeJunkie_States_Tutorial_TimerStates_State_PoweredOn --> CodeJunkie_States_Tutorial_TimerStates_State_PoweredOff : PowerButtonPressed
+
+CodeJunkie_States_Tutorial_TimerStates_State_PoweredOff : OnEnter → PoweredOff
+CodeJunkie_States_Tutorial_TimerStates_State_PoweredOn : OnEnter → PoweredOn
+
+[*] --> CodeJunkie_States_Tutorial_TimerStates_State_PoweredOff
+@enduml

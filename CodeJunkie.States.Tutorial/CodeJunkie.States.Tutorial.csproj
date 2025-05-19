@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <CopyAllFiles>true</CopyAllFiles>
+    <RootNamespace>CodeJunkie.States.Tutorial</RootNamespace>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <OutputPath>./nupkg</OutputPath>
+    <DebugType>portable</DebugType>
+
+    <Title>CodeJunkie.States.Tutorial</Title>
+
+    <PackageId>CodeJunkie.States.Tutorial</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../CodeJunkie.States/CodeJunkie.States.csproj" />
+    <ProjectReference Include="../CodeJunkie.States.DiagramGenerator/CodeJunkie.States.DiagramGenerator.csproj" PrivateAssets="all" OutputItemType="analyzer" />
+
+    <PackageReference Include="CodeJunkie.Metadata.Generator" Version="1.0.0" PrivateAssets="all" OutputItemType="analyzer" />
+    <PackageReference Include="CodeJunkie.Log" Version="1.0.0" />
+  </ItemGroup>
+
+</Project>
