@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <Nullable>enable</Nullable>
+
+    <!-- To show generated files -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>.generated</CompilerGeneratedFilesOutputPath>
+
+    <!-- Tracks generator performance when dotnet build /binaryLogger -->
+    <ReportAnalyzer>true</ReportAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CodeJunkie.Log" Version="1.0.0" />
+    <PackageReference Include="CodeJunkie.Metadata" Version="1.0.0" />
+    <PackageReference Include="CodeJunkie.Metadata.Generator" Version="1.0.1" PrivateAssets="all" OutputItemType="analyzer" />
+
+    <ProjectReference Include="../CodeJunkie.StateChart/CodeJunkie.StateChart.csproj" />
+    <ProjectReference Include="../CodeJunkie.StateChart.DiagramGenerator/CodeJunkie.StateChart.DiagramGenerator.csproj" PrivateAssets="all" OutputItemType="analyzer" />
+    <ProjectReference Include="../CodeJunkie.StateChart.CodeFixes/CodeJunkie.StateChart.CodeFixes.csproj" PrivateAssets="all" OutputItemType="analyzer" />
+    <ProjectReference Include="../CodeJunkie.StateChart.Analyzers/CodeJunkie.StateChart.Analyzers.csproj" PrivateAssets="all" OutputItemType="analyzer" />
+  </ItemGroup>
+
+</Project>

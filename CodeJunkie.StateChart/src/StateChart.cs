@@ -1,0 +1,604 @@
+namespace CodeJunkie.StateChart;
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using CodeJunkie.Collections;
+using CodeJunkie.Metadata;
+using CodeJunkie.Serialization;
+
+/// <summary>
+/// <para>
+/// A states. State charts are machines that receive input, maintain a
+/// single state, and produce outputs. They can be used as simple
+/// input-to-state reducers, or built upon to create hierarchical state
+/// machines.
+/// </para>
+/// <para>
+/// State charts are similar to statecharts, and enable the state pattern to
+/// be easily leveraged using traditional object oriented programming built
+/// into C#. Each state is a self-contained record.
+/// </para>
+/// </summary>
+/// <typeparam name="TState">State type.</typeparam>
+#if WITH_SERIALIZATION
+public interface IStateChart<TState> : IStateChartBase, ISerializableBlackboard where TState : StateLogic<TState> {
+#else
+public interface IStateChart<TState> : IStateChartBase, IBlackboard where TState : StateLogic<TState> {
+#endif
+  /// <summary>
+  /// State chart execution context.
+  /// </summary>
+  IContext Context { get; }
+
+  /// <summary>Current state of the states.</summary>
+  TState Value { get; }
+
+  /// <summary>
+  /// Whether or not the states is currently processing inputs.
+  /// </summary>
+  bool IsProcessing { get; }
+
+  /// <summary>
+  /// Whether or not the states has been started. A states is started
+  /// if its underlying state has been initialized.
+  /// </summary>
+  bool IsStarted { get; }
+
+  /// <summary>
+  /// Returns the initial state of the states. Implementations must
+  /// override this to provide a valid initial state.
+  /// </summary>
+  /// <returns>Initial states state.</returns>
+  StateChart<TState>.Transition GetInitialState();
+
+  /// <summary>
+  /// Adds an input value to the states's internal input queue.
+  /// </summary>
+  /// <param name="input">Input to process.</param>
+  /// <typeparam name="TInputType">Type of the input.</typeparam>
+  /// <returns>State chart input return value.</returns>
+  TState Input<TInputType>(in TInputType input) where TInputType : struct;
+
+  /// <summary>
+  /// Creates a binding to a states.
+  /// </summary>
+  /// <returns>State chart binding.</returns>
+  StateChart<TState>.IBinding Bind();
+
+  /// <summary>
+  /// Starts the states by entering the current state. If the states
+  /// is already started, nothing happens. If the states
+  /// has not initialized its underlying state, it will initialize it by calling
+  /// <see cref="GetInitialState" /> and attaching it to the states first.
+  /// </summary>
+  void Start();
+
+  /// <summary>
+  /// Stops the states. This calls any OnExit callbacks the current state
+  /// registered before detaching it. If any inputs are created while the
+  /// state is exiting and detaching, they are cleared instead of being
+  /// processed.
+  /// </summary>
+  void Stop();
+
+  /// <summary>
+  /// <para>
+  /// Forcibly resets the states to the specified state, even if the
+  /// StateChart is on another state that would never transition to the
+  /// given state. This can be leveraged by systems outside the states's
+  /// own states to force the states to a specific state, such as when
+  /// deserializing a states state.
+  /// </para>
+  /// <para>
+  /// If the states has no underlying state (because it hasn't been started
+  /// or was stopped), this will make the specified state the initial state.
+  /// </para>
+  /// <para>
+  /// When resetting, the states will exit and detach any current state,
+  /// if it has one, before attaching and entering the given state.
+  /// </para>
+  /// </summary>
+  /// <param name="state">State to forcibly reset to.</param>
+  TState ForceReset(TState state);
+
+  /// <summary>
+  /// Restores the states from a deserialized states.
+  /// </summary>
+  /// <param name="logic">Other states.</param>
+  /// <param name="shouldCallOnEnter">Whether or not to call OnEnter callbacks
+  /// when entering the restored state.</param>
+  void RestoreFrom(IStateChart<TState> logic, bool shouldCallOnEnter = true);
+
+  /// <summary>
+  /// Adds a binding to the states. This is used internally by the standard
+  /// bindings implementation. Prefer using <see cref="Bind" /> to create an
+  /// instance of the standard bindings which allow you to easily observe a
+  /// states's inputs, states, outputs, and exceptions.
+  /// </summary>
+  /// <param name="binding">State chart binding.</param>
+  void AddBinding(IStateChartBinding<TState> binding);
+
+  /// <summary>
+  /// Removes a binding from the states. This is used internally by the
+  /// standard bindings implementation. Prefer using <see cref="Bind" /> to
+  /// create an instance of the standard bindings which allow you to easily
+  /// observe a states's inputs, states, outputs, and exceptions.
+  /// </summary>
+  /// <param name="binding">State chart binding.</param>
+  void RemoveBinding(IStateChartBinding<TState> binding);
+}
+
+/// <summary>
+/// <para>
+/// A synchronous states. State charts are machines that process inputs
+/// one-at-a-time, maintain a current state graph, and produce outputs.
+/// </para>
+/// <para>
+/// State charts are essentially statecharts that are created using the state
+/// pattern. Each state is a self-contained record.
+/// </para>
+/// </summary>
+/// <typeparam name="TState">State type.</typeparam>
+public abstract partial class StateChart<TState> : StateChartBase,
+IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
+  // We do want static members on generic types here since it makes for a
+  // really ergonomic API.
+  /// <summary>
+  /// Creates a fake logic binding that can be used to more easily test objects
+  /// that bind to statess.
+  /// </summary>
+  /// <returns>Fake binding.</returns>
+  public static IFakeBinding CreateFakeBinding() => new FakeBinding();
+
+  /// <inheritdoc />
+  public IContext Context { get; }
+
+  /// <inheritdoc />
+  public bool IsProcessing => _isProcessing > 0;
+
+  /// <inheritdoc />
+  public bool IsStarted => _value is not null;
+
+  /// <inheritdoc />
+  public TState Value => _value ?? Flush();
+
+  #region StateChartBase
+  /// <inheritdoc />
+  public override object? ValueAsObject => _value;
+
+  /// <inheritdoc />
+  public override void RestoreState(object state) {
+    if (_value is not null) {
+      throw new StateChartException(
+        "Cannot restore state once a state has been initialized."
+      );
+    }
+
+    RestoredState = (TState)state;
+  }
+  #endregion StateChartBase
+
+  private TState? _value;
+  private int _isProcessing;
+  private readonly BoxlessQueue _inputs;
+  private readonly HashSet<IStateChartBinding<TState>> _bindings = new();
+
+  // Sometimes, it is preferable not to call OnEnter callbacks when starting
+  // a states, such as when restoring from a saved / serialized state chart.
+  private bool _shouldCallOnEnter = true;
+
+  /// <summary>
+  /// <para>Creates a new StateChart.</para>
+  /// <para>
+  /// A states is a machine that receives input, maintains a
+  /// single state, and produces outputs. It can be used as a simple
+  /// input-to-state reducer, or built upon to create a hierarchical state
+  /// machine.
+  /// </para>
+  /// </summary>
+  protected StateChart() {
+    _inputs = new(this);
+    Context = new DefaultContext(this);
+    PreallocateStates(this);
+  }
+
+  /// <inheritdoc />
+  public abstract Transition GetInitialState();
+
+  /// <inheritdoc />
+  public virtual IBinding Bind() => new Binding(this);
+
+  /// <inheritdoc />
+  public virtual TState Input<TInputType>(
+    in TInputType input
+  ) where TInputType : struct {
+    if (IsProcessing) {
+      _inputs.Enqueue(input);
+      return Value;
+    }
+    return ProcessInputs<TInputType>(input);
+  }
+
+  /// <inheritdoc />
+  public void Start() {
+    if (IsProcessing || _value is not null) { return; }
+
+    Flush();
+  }
+
+  /// <summary>
+  /// Called when the states is started. Override this method to
+  /// perform any initialization logic.
+  /// </summary>
+  public virtual void OnStart() { }
+
+  /// <inheritdoc />
+  public void Stop() {
+    if (IsProcessing || _value is null) { return; }
+
+    OnStop();
+
+    // Repeatedly exit and detach the current state until there is none.
+    ChangeState(null);
+
+    _inputs.Clear();
+
+    // A state finally exited and detached without queuing additional inputs.
+    _value = null;
+  }
+
+  /// <summary>
+  /// Called when the states is stopped. Override this method to
+  /// perform any cleanup logic.
+  /// </summary>
+  public virtual void OnStop() { }
+
+  /// <inheritdoc />
+  public TState ForceReset(TState state) {
+    if (IsProcessing) {
+      throw new StateChartException(
+        "Cannot force reset a states while it is processing inputs. " +
+        "Do not call ForceReset() from inside a states's own state."
+      );
+    }
+
+    ChangeState(state);
+
+    return Flush();
+  }
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void AddBinding(IStateChartBinding<TState> binding) =>
+    _bindings.Add(binding);
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void RemoveBinding(IStateChartBinding<TState> binding) =>
+    _bindings.Remove(binding);
+
+  /// <summary>
+  /// <para>
+  /// Determines if the states can transition to the next state.
+  /// </para>
+  /// <para>
+  /// A states can only transition to a state if the state is not
+  /// equivalent to the current state. That is, the state must not be the same
+  /// reference and must not be equal to the current state (as determined by
+  /// the default equality comparer).
+  /// </para>
+  /// </summary>
+  /// <param name="state">Next potential state.</param>
+  /// <returns>True if the states can change to the given state, false
+  /// otherwise.</returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  protected virtual bool CanChangeState(TState? state) {
+    return !SerializationUtilities.IsEquivalent(state, _value);
+  }
+
+  /// <summary>
+  /// Adds an error to the states. Call this from your states to
+  /// register errors that occur. State charts are designed to be resilient
+  /// to errors, so registering errors instead of stopping execution is
+  /// preferred in most cases.
+  /// </summary>
+  /// <param name="e">Exception to add.</param>
+  internal virtual void AddError(Exception e) {
+    AnnounceException(e);
+    HandleError(e);
+  }
+
+  /// <summary>
+  /// Produces an output. Outputs are one-shot side effects that allow you
+  /// to communicate with the world outside the states. Outputs are
+  /// equivalent to the idea of actions in statecharts.
+  /// </summary>
+  /// <typeparam name="TOutput">Output type.</typeparam>
+  /// <param name="output">Output value.</param>
+  internal virtual void OutputValue<TOutput>(in TOutput output)
+    where TOutput : struct => AnnounceOutput(output);
+
+  /// <summary>
+  /// Called when the states encounters an error. Overriding this method
+  /// allows you to customize how errors are handled. If you throw the error
+  /// again from this method, you can make errors stop execution.
+  /// </summary>
+  /// <param name="e">Exception that occurred.</param>
+  protected virtual void HandleError(Exception e) { }
+
+  /// <summary>
+  /// Defines a transition to a state stored on the states's blackboard.
+  /// </summary>
+  /// <typeparam name="TStateType">Type of state to transition to.</typeparam>
+  protected Transition To<TStateType>()
+    where TStateType : TState => new(Context.Get<TStateType>());
+
+  #region IReadOnlyBlackboard
+  /// <inheritdoc />
+  public IReadOnlySet<Type> Types => Blackboard.Types;
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public TData Get<TData>() where TData : class => Blackboard.Get<TData>();
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public object GetObject(Type type) => Blackboard.GetObject(type);
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public bool Has<TData>() where TData : class => Blackboard.Has<TData>();
+
+  /// <inheritdoc />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public bool HasObject(Type type) => Blackboard.HasObject(type);
+  #endregion IReadOnlyBlackboard
+
+  #region IBlackboard
+  /// <inheritdoc cref="IBlackboard.Set{TData}(TData)" />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void Set<TData>(TData data) where TData : class =>
+    Blackboard.Set(data);
+
+  /// <inheritdoc cref="IBlackboard.SetObject(Type, object)" />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void SetObject(Type type, object data) =>
+    Blackboard.SetObject(type, data);
+
+  /// <inheritdoc cref="IBlackboard.Overwrite{TData}(TData)" />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void Overwrite<TData>(TData data) where TData : class =>
+    Blackboard.Overwrite(data);
+
+  /// <inheritdoc cref="IBlackboard.OverwriteObject(Type, object)" />
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void OverwriteObject(Type type, object data) =>
+    Blackboard.OverwriteObject(type, data);
+  #endregion IBlackboard
+
+#if WITH_SERIALIZATION
+#region ISerializableBlackboard
+  /// <inheritdoc cref="ISerializableBlackboard.SavedTypes" />
+  public IEnumerable<Type> SavedTypes => Blackboard.SavedTypes;
+
+  /// <inheritdoc cref="ISerializableBlackboard.TypesToSave" />
+  public IEnumerable<Type> TypesToSave => Blackboard.TypesToSave;
+
+  /// <inheritdoc cref="ISerializableBlackboard.Save{TData}(Func{TData})" />
+  public void Save<TData>(Func<TData> factory)
+    where TData : class, IIdentifiable => Blackboard.Save(factory);
+
+  /// <inheritdoc
+  /// cref="ISerializableBlackboard.SaveObject(Type, Func{object}, object?)" />
+  public void SaveObject(Type type,
+                         Func<object> factory,
+                         object? referenceValue) {
+    Blackboard.SaveObject(type, factory, referenceValue);
+  }
+#endregion ISerializableBlackboard
+#endif
+
+  internal TState ProcessInputs<TInputType>(
+    TInputType? input = null
+  ) where TInputType : struct {
+    _isProcessing++;
+
+    if (_value is null) {
+      // No state yet. Let's get the first state going!
+#if WITH_SERIALIZATION
+      Blackboard.InstantiateAnyMissingSavedData();
+#endif
+      ChangeState(RestoredState as TState ?? GetInitialState().State);
+      RestoredState = null;
+      OnStart();
+    }
+
+    // We can always process the first input directly.
+    // This keeps single inputs off the heap.
+    if (input.HasValue) {
+      (this as IBoxlessValueHandler).HandleValue(input.Value);
+    }
+
+    while (_inputs.HasValues) {
+      _inputs.Dequeue();
+    }
+
+    _isProcessing--;
+
+    _shouldCallOnEnter = true;
+
+    return _value!;
+  }
+
+  void IBoxlessValueHandler.HandleValue<TInputType>(in TInputType input)
+  where TInputType : struct {
+    if (_value is not IGet<TInputType> stateWithInputHandler) {
+      return;
+    }
+
+    // Run the input handler on the state to get the next state.
+    var state = RunInputHandler(stateWithInputHandler, in input, _value);
+
+    AnnounceInput(in input);
+
+    if (!CanChangeState(state)) {
+      // The only time we can't change states is if the new state is
+      // equivalent to the old state (determined by the default equality
+      // comparer)
+      return;
+    }
+
+    ChangeState(state);
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private void ChangeState(TState? state) {
+    _isProcessing++;
+    var previous = _value;
+
+    previous?.Exit(state);
+    previous?.Detach();
+
+    _value = state;
+
+    var stateIsDifferent = CanChangeState(previous);
+
+    if (state is not null) {
+      state.Attach(Context);
+
+      if (_shouldCallOnEnter) {
+        state.Enter(previous);
+      }
+
+      if (stateIsDifferent) {
+        AnnounceState(state);
+      }
+    }
+    _isProcessing--;
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private void AnnounceInput<TInputType>(in TInputType input)
+  where TInputType : struct {
+    foreach (var binding in _bindings) {
+      binding.MonitorInput(in input);
+    }
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private void AnnounceState(TState state) {
+    foreach (var binding in _bindings) {
+      binding.MonitorState(state);
+    }
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private void AnnounceOutput<TOutputType>(TOutputType output)
+  where TOutputType : struct {
+    foreach (var binding in _bindings) {
+      binding.MonitorOutput(in output);
+    }
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private void AnnounceException(Exception exception) {
+    foreach (var binding in _bindings) {
+      binding.MonitorException(exception);
+    }
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private TState RunInputHandler<TInputType>(
+    IGet<TInputType> inputHandler,
+    in TInputType input,
+    TState fallback
+  ) where TInputType : struct {
+    try { return inputHandler.On(in input).State; }
+    catch (Exception e) { AddError(e); }
+    return fallback;
+  }
+
+  /// <summary>
+  /// Processes inputs and changes state until there are no more inputs.
+  /// </summary>
+  /// <returns>The resting state.</returns>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  private TState Flush() => ProcessInputs<int>();
+
+  /// <summary>
+  /// Determines if two statess are equivalent. State charts are equivalent
+  /// if they are the same reference, or if each of their states and blackboards
+  /// are equivalent.
+  /// </summary>
+  /// <param name="obj">Other states.</param>
+  /// <returns>True if</returns>
+  public override bool Equals(object? obj) {
+    if (ReferenceEquals(this, obj)) { return true; }
+
+    if (obj is not StateChartBase logic) { return false; }
+
+    if (GetType() != logic.GetType()) {
+      // Two different types of statess are never equal.
+      return false;
+    }
+
+    // Ensure current states are equal.
+    if (
+      !SerializationUtilities.IsEquivalent(ValueAsObject, logic.ValueAsObject)
+    ) {
+      return false;
+    }
+
+    // Ensure blackboard entries are equal.
+    var types = Blackboard.Types;
+    var otherTypes = logic.Blackboard.Types;
+
+    if (types.Count != otherTypes.Count) { return false; }
+
+    foreach (var type in types) {
+      if (!otherTypes.Contains(type)) { return false; }
+
+      var obj1 = Blackboard.GetObject(type);
+      var obj2 = logic.Blackboard.GetObject(type);
+
+      if (SerializationUtilities.IsEquivalent(obj1, obj2)) {
+        continue;
+      }
+
+      return false;
+    }
+
+    return true;
+  }
+
+  // Equivalent statess have different hash codes because they are
+  // different instances.
+  /// <inheritdoc />
+  public override int GetHashCode() => base.GetHashCode();
+
+  /// <inheritdoc />
+  public void RestoreFrom(
+    IStateChart<TState> logic, bool shouldCallOnEnter = true
+  ) {
+    _shouldCallOnEnter = shouldCallOnEnter;
+
+    if ((logic.ValueAsObject ?? logic.RestoredState) is not TState state) {
+      throw new StateChartException(
+        $"Cannot restore from an uninitialized states ({logic}). Please " +
+        "make sure you've called Start() on it first."
+      );
+    }
+
+    Stop();
+
+    foreach (var type in logic.Blackboard.Types) {
+      Blackboard.OverwriteObject(type, logic.Blackboard.GetObject(type));
+    }
+
+    var stateType = state.GetType();
+    OverwriteObject(stateType, state);
+    RestoreState(state);
+  }
+}

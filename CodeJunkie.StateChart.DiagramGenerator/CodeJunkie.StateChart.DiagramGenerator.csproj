@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Source generators must target netstandard 2.0 -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>CodeJunkie.StateChart.DiagramGenerator</RootNamespace>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <!-- RS1035: We're deliberately doing file output in an analyzer -->
+    <NoWarn>NU5128;RS1035</NoWarn>
+    <OutputPath>./nupkg</OutputPath>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <DebugType>portable</DebugType>
+
+    <Title>StateChart Generator</Title>
+    <Version>0.0.0-devbuild</Version>
+    <Description>See what your hierarchical state machine code looks like as a diagram!</Description>
+    <Copyright>© 2025 codejunkie</Copyright>
+    <Authors>codejunkie</Authors>
+    <Company>codejunkie</Company>
+  </PropertyGroup>
+
+  <!-- The following libraries include the source generator interfaces and types we need -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" PrivateAssets="all" />
+    <PackageReference Include="IsExternalInit" Version="1.0.3" PrivateAssets="all">
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- This ensures the library will be packaged as a source generator when we use `dotnet pack` -->
+  <ItemGroup>
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+</Project>

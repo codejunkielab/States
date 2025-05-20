@@ -1,0 +1,109 @@
+namespace CodeJunkie.StateChart;
+
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using CodeJunkie.Serialization;
+using CodeJunkie.Metadata;
+
+public partial class StateChart<TState> : ICustomSerializable {
+  /// <summary>Json property name for the state.</summary>
+  public const string _stateProperty = "state";
+  /// <summary>Json property name for the blackboard.</summary>
+  public const string _blackboardProperty = "blackboard";
+
+  /// <inheritdoc />
+  public object OnDeserialized(
+    IdentifiableTypeMetadata metadata,
+    JsonObject json,
+    JsonSerializerOptions options
+  ) {
+    var graph = Metadata.Types.Graph;
+
+    var type = GetType();
+
+    var stateJson = json[_stateProperty]?.AsObject() ??
+      throw new JsonException(
+        $"State chart `{metadata.Id}` is missing the `{_stateProperty}` " +
+        "property."
+      );
+
+    var stateId =
+      stateJson[Serializer.TYPE_PROPERTY]?.ToString() ??
+      throw new JsonException(
+        $"State chart `{metadata.Id}` is missing the state type."
+      );
+
+    var stateVersion =
+      stateJson[Serializer.VERSION_PROPERTY]?.GetValue<int>() ??
+      throw new JsonException(
+        $"State chart `{metadata.Id}` is missing the state version."
+      );
+
+    var blackboardJson =
+      json[_blackboardProperty] ?? throw new JsonException(
+        $"State chart `{metadata.Id}` is missing the `{_blackboardProperty}` " +
+        "property."
+      );
+
+    var blackboard = JsonSerializer.Deserialize<SerializableBlackboard>(
+      blackboardJson,
+      options
+    )!; // Blackboard deserialization will throw on its own if invalid.
+
+    // Rather than replace our blackboard, we simply overwrite any values that
+    // we found in the deserialized blackboard. Preserving our blackboard
+    // enables us to respect new persisted values or non-persisted values that
+    // have already been added to the blackboard during construction.
+    foreach (var objType in blackboard.Types) {
+      Blackboard.OverwriteObject(objType, blackboard.GetObject(objType));
+    }
+
+    if (
+      graph.GetIdentifiableType(stateId) is not { } stateType ||
+      graph.GetMetadata(stateType) is not IIdentifiableTypeMetadata
+    ) {
+      throw new JsonException(
+        $"State chart {metadata.Id} has an unknown identifiable state " +
+        $"type id `{stateId}`."
+      );
+    }
+
+    // Load the state from the states's blackboard, since we have
+    // preallocated states during construction, and deserialization has
+    // overwritten any preallocated states with the deserialized state.
+    var state = Blackboard.GetObject(stateType);
+
+    // Set the state to be used (instead of the states's initial state)
+    // whenever the states is started.
+    RestoreState(state);
+
+    return this;
+  }
+
+  /// <inheritdoc />
+  public void OnSerialized(
+    IdentifiableTypeMetadata metadata,
+    JsonObject json,
+    JsonSerializerOptions options
+  ) {
+    var graph = Metadata.Types.Graph;
+
+    var stateJson = new JsonObject();
+
+    var stateType = Value.GetType();
+
+    // Serializable statess validate that concrete states are identifiable
+    // during preallocation.
+    var stateMetadata = (IdentifiableTypeMetadata)graph.GetMetadata(stateType)!;
+
+    stateJson[Serializer.TYPE_PROPERTY] = stateMetadata.Id;
+    stateJson[Serializer.VERSION_PROPERTY] = stateMetadata.Version;
+
+    json[_stateProperty] = stateJson;
+
+    json[_blackboardProperty] = JsonSerializer.SerializeToNode(
+      Blackboard,
+      options
+    );
+  }
+}
