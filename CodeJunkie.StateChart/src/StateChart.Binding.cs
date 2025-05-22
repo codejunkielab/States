@@ -3,111 +3,102 @@ namespace CodeJunkie.StateChart;
 using System;
 using System.Collections.Generic;
 
+/// <summary>
+/// <para>Provides fluent bindings for states in the state chart.</para>
+/// </summary>
 public abstract partial class StateChart<TState> {
   /// <summary>
-  /// Action that responds to a particular type of input.
+  /// Represents an action that processes a specific type of input.
   /// </summary>
-  /// <typeparam name="TInputType">Input type.</typeparam>
-  /// <param name="input">Input object.</param>
+  /// <typeparam name="TInputType">The type of input to be processed.</typeparam>
+  /// <param name="input">The input object to be handled.</param>
   public delegate void InputAction<TInputType>(in TInputType input)
     where TInputType : struct;
 
   /// <summary>
-  /// Action that responds to a particular type of output.
+  /// Represents an action that processes a specific type of output.
   /// </summary>
-  /// <typeparam name="TOutputType">Output type.</typeparam>
-  /// <param name="output">Output object.</param>
+  /// <typeparam name="TOutputType">The type of output to be processed.</typeparam>
+  /// <param name="output">The output object to be handled.</param>
   public delegate void OutputAction<TOutputType>(in TOutputType output)
     where TOutputType : struct;
 
   /// <summary>
-  /// <para>State bindings for a states.</para>
+  /// <para>Defines bindings for states in the state chart.</para>
   /// <para>
-  /// A binding allows you to select data from a states's state, invoke
-  /// methods when certain states occur, and handle outputs. Using bindings
-  /// enable you to write more declarative code and prevent unnecessary
-  /// updates when a state has changed but the relevant data within it has not.
+  /// Bindings enable the selection of data from a state, invocation of methods
+  /// when specific states occur, and handling of outputs. They promote a declarative
+  /// coding style and help avoid redundant updates when irrelevant data changes.
   /// </para>
   /// </summary>
   public interface IBinding : IDisposable {
     /// <summary>
-    /// Register a callback to be invoked whenever an input type of
-    /// <typeparamref name="TInputType" /> is encountered.
+    /// Registers a callback to be executed whenever an input of type
+    /// <typeparamref name="TInputType" /> is received.
     /// </summary>
-    /// <param name="handler">Input callback handler.</param>
-    /// <typeparam name="TInputType">Type of input to register a handler
-    /// for.</typeparam>
-    /// <returns>The current binding.</returns>
+    /// <param name="handler">The callback handler for the input.</param>
+    /// <typeparam name="TInputType">The type of input to associate with the handler.</typeparam>
+    /// <returns>The current binding instance for chaining.</returns>
     IBinding Watch<TInputType>(InputAction<TInputType> handler)
       where TInputType : struct;
 
-    /// Registers a binding for a specific type of state.
     /// <summary>
-    /// Create a bindings group that allows you to register bindings for a
-    /// specific type of state. Bindings are callbacks that only run when the
-    /// specific type of state you specify with
+    /// Creates a binding group for a specific type of state.
+    /// The registered callback is executed only when the specified state type
     /// <typeparamref name="TStateType" /> is encountered.
     /// </summary>
-    /// <typeparam name="TStateType">Type of state to bind to.</typeparam>
-    /// <param name="handler">Handler invoked when the state changes.</param>
-    /// <returns>The new binding group.</returns>
+    /// <typeparam name="TStateType">The type of state to bind the handler to.</typeparam>
+    /// <param name="handler">The callback to invoke when the state changes.</param>
+    /// <returns>The current binding instance for chaining.</returns>
     public IBinding When<TStateType>(Action<TStateType> handler)
       where TStateType : TState;
 
     /// <summary>
-    /// Register a callback to be invoked whenever an output type of
-    /// <typeparamref name="TOutputType" /> is encountered.
+    /// Registers a callback to be executed whenever an output of type
+    /// <typeparamref name="TOutputType" /> is produced.
     /// </summary>
-    /// <param name="handler">Output callback handler.</param>
-    /// <typeparam name="TOutputType">Type of output to register a handler
-    /// for.</typeparam>
-    /// <returns>The current binding.</returns>
+    /// <param name="handler">The callback handler for the output.</param>
+    /// <typeparam name="TOutputType">The type of output to associate with the handler.</typeparam>
+    /// <returns>The current binding instance for chaining.</returns>
     IBinding Handle<TOutputType>(OutputAction<TOutputType> handler)
       where TOutputType : struct;
 
     /// <summary>
-    /// Register a callback to be invoked whenever an error type of
-    /// <typeparamref name="TException" /> is encountered.
+    /// Registers a callback to handle exceptions of type
+    /// <typeparamref name="TException" /> when they occur.
     /// </summary>
-    /// <param name="handler">Error callback handler.</param>
-    /// <typeparam name="TException">Type of exception to handle.</typeparam>
-    /// <returns>The current binding.</returns>
+    /// <param name="handler">The callback handler for the exception.</param>
+    /// <typeparam name="TException">The type of exception to handle.</typeparam>
+    /// <returns>The current binding instance for chaining.</returns>
     IBinding Catch<TException>(Action<TException> handler)
       where TException : Exception;
   }
 
   /// <summary>
-  /// <para>Fluent bindings for a states.</para>
+  /// <para>Provides fluent bindings for states in the state chart.</para>
   /// <para>
-  /// A binding allows you to select data from a states's state, invoke
-  /// methods when certain states occur, and handle outputs. Using bindings
-  /// enable you to write more declarative code and prevent unnecessary
-  /// updates when a state has changed but the relevant data within it has not.
+  /// Bindings enable the selection of data from a state, invocation of methods
+  /// when specific states occur, and handling of outputs. They promote a declarative
+  /// coding style and help avoid redundant updates when irrelevant data changes.
   /// </para>
   /// <para>
-  /// Always dispose your binding when you're finished with it!
+  /// Ensure to dispose of the binding properly after use to release resources.
   /// </para>
   /// </summary>
-  internal abstract class BindingBase :
-  StateChartListenerBase<TState>, IBinding {
-    // Map of an input type to a list of functions that receive that input.
-    // We store the functions as "object" and cast to the specific function
-    // type later when we have a generic argument to avoid boxing inputs.
+  internal abstract class BindingBase : StateChartListenerBase<TState>, IBinding {
+    // Functions that check if a binding should run for a given TInputType.
+    // These are stored as a dictionary of type to list of handlers.
     internal readonly Dictionary<Type, List<object>> _inputRunners;
     internal readonly Dictionary<Type, List<object>> _outputRunners;
 
-    // List of functions that receive a TState and return whether the binding
-    // with the same index in the _whenBindingRunners should be run.
+    // Functions that determine if a binding should execute for a given TState.
     internal readonly List<Func<TState, bool>> _stateCheckers;
-    // List of functions that receive a TState and invoke the relevant binding
-    // when a particular type of state is encountered.
+    // Functions that execute bindings for specific TState types.
     internal readonly List<Action<TState>> _stateRunners;
 
-    // List of functions that receive an Exception and return whether the
-    // binding with the same index in the _errorRunners should be run.
+    // Functions that check if a binding should handle a given Exception.
     internal readonly List<Func<Exception, bool>> _exceptionCheckers;
-    // List of functions that receive an Exception and invoke the relevant
-    // binding when a particular type of error is encountered.
+    // Functions that execute bindings for specific Exception types.
     internal readonly List<Action<Exception>> _exceptionRunners;
 
     internal BindingBase() {
@@ -121,97 +112,95 @@ public abstract partial class StateChart<TState> {
 
     /// <inheritdoc />
     public IBinding Watch<TInputType>(InputAction<TInputType> handler)
-    where TInputType : struct {
-      if (_inputRunners.TryGetValue(typeof(TInputType), out var runners)) {
-        runners.Add(handler);
-      }
-      else {
-        _inputRunners[typeof(TInputType)] = new List<object> { handler };
-      }
+      where TInputType : struct {
+        if (_inputRunners.TryGetValue(typeof(TInputType), out var runners)) {
+          runners.Add(handler);
+        }
+        else {
+          _inputRunners[typeof(TInputType)] = new List<object> { handler };
+        }
 
-      return this;
-    }
+        return this;
+      }
 
     /// <inheritdoc />
     public IBinding When<TStateType>(Action<TStateType> handler)
       where TStateType : TState {
-      // Only run the callback if the incoming state is the expected type of
-      // state. All incoming states are guaranteed to be non-equivalent to the
-      // previous state.
-      _stateCheckers.Add((state) => state is TStateType);
-      _stateRunners.Add((state) => handler((TStateType)state));
+        // Only run the callback if the incoming state is the expected type of
+        // state. All incoming states are guaranteed to be non-equivalent to the
+        // previous state.
+        _stateCheckers.Add((state) => state is TStateType);
+        _stateRunners.Add((state) => handler((TStateType)state));
 
-      return this;
-    }
+        return this;
+      }
 
     /// <inheritdoc />
     public IBinding Handle<TOutputType>(OutputAction<TOutputType> handler)
-    where TOutputType : struct {
-      if (_outputRunners.TryGetValue(typeof(TOutputType), out var runners)) {
-        runners.Add(handler);
-      }
-      else {
-        _outputRunners[typeof(TOutputType)] = new List<object> { handler };
-      }
+      where TOutputType : struct {
+        if (_outputRunners.TryGetValue(typeof(TOutputType), out var runners)) {
+          runners.Add(handler);
+        }
+        else {
+          _outputRunners[typeof(TOutputType)] = new List<object> { handler };
+        }
 
-      return this;
-    }
+        return this;
+      }
 
     /// <inheritdoc />
     public IBinding Catch<TException>(
-      Action<TException> handler
-    ) where TException : Exception {
+        Action<TException> handler
+        ) where TException : Exception {
       _exceptionCheckers.Add((error) => error is TException);
       _exceptionRunners.Add((error) => handler((TException)error));
 
       return this;
     }
 
-    protected override void ReceiveInput<TInputType>(in TInputType input)
-    where TInputType : struct {
+    protected override void ReceiveInput<TInputType>(in TInputType input) where TInputType : struct {
       if (!_inputRunners.TryGetValue(typeof(TInputType), out var runners)) {
         return;
       }
 
-      // Run each input binding that should be run.
+      // Execute all applicable input bindings.
       foreach (var runner in runners) {
-        // If the binding handles this type of input, run it!
+        // Invoke the handler for this input type.
         (runner as InputAction<TInputType>)!(in input);
       }
     }
 
     protected override void ReceiveState(TState state) {
-      // Run each when binding that should be run.
+      // Execute all applicable state bindings.
       for (var i = 0; i < _stateCheckers.Count; i++) {
         var checker = _stateCheckers[i];
         var runner = _stateRunners[i];
         if (checker(state)) {
-          // If the binding handles this type of state, run it!
+          // Invoke the handler for this state type.
           runner(state);
         }
       }
     }
 
-    protected override void ReceiveOutput<TOutputType>(in TOutputType output)
-    where TOutputType : struct {
+    protected override void ReceiveOutput<TOutputType>(in TOutputType output) where TOutputType : struct {
       if (!_outputRunners.TryGetValue(typeof(TOutputType), out var runners)) {
         return;
       }
 
-      // Run each output binding that should be run.
+      // Execute all applicable output bindings.
       foreach (var runner in runners) {
-        // If the binding handles this type of output, run it!
+        // Invoke the handler for this output type.
         (runner as OutputAction<TOutputType>)!(in output);
       }
     }
 
     protected override void ReceiveException(Exception e) {
-      // Run each error binding that should be run.
+      // Execute all applicable error bindings.
       for (var i = 0; i < _exceptionCheckers.Count; i++) {
         var checker = _exceptionCheckers[i];
         var runner = _exceptionRunners[i];
         if (checker(e)) {
-          // If the binding handles this type of error, run it!
+          // Invoke the handler for this error type.
           runner(e);
         }
       }

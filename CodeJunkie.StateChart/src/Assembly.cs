@@ -1,4 +1,4 @@
 using System.Runtime.CompilerServices;
 
-// IMPORTANT: Allow us to test internal methods in our test project.
+// IMPORTANT: Allows internal methods to be accessible for testing within the test project.
 [assembly: InternalsVisibleTo("CodeJunkie.StateChart.Tests")]

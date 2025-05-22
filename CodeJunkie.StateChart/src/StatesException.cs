@@ -2,11 +2,15 @@ namespace CodeJunkie.StateChart;
 
 using System;
 
-/// <summary>Creates a new states exception.</summary>
+/// <summary>
+/// Represents an exception specific to state charts. This exception is thrown
+/// when an error occurs within the state chart framework.
+/// </summary>
 public class StateChartException : Exception {
   /// <summary>
-  /// Creates a new states exception with the specified message.
+  /// Initializes a new instance of the <see cref="StateChartException"/> class
+  /// with a specified error message.
   /// </summary>
-  /// <param name="message">Exception message.</param>
+  /// <param name="message">The message that describes the error.</param>
   public StateChartException(string message) : base(message) { }
 }

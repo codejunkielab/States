@@ -10,9 +10,9 @@ public static class Diagnostics {
     get;
   } = new(
     $"{ERR_PREFIX}_001",
-    $"Missing [{Constants.STATE_CHART_ATTRIBUTE_NAME}]",
+    $"Missing [{Constants.StateChartAttributeName}]",
     messageFormat:
-      $"Missing [{Constants.STATE_CHART_ATTRIBUTE_NAME}] on state chart " +
+      $"Missing [{Constants.StateChartAttributeName}] on state chart " +
       "implementation `{0}`",
     ERR_CATEGORY,
     DiagnosticSeverity.Error,

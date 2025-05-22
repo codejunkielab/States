@@ -3,33 +3,33 @@ namespace CodeJunkie.StateChart;
 using System;
 
 /// <summary>
-/// Represents the context provided to each states state for managing inputs, outputs, and errors.
+/// Provides a shared context for states to manage inputs, outputs, shared data, and error handling.
 /// </summary>
 public interface IContext {
   /// <summary>
-  /// Adds an input value to the states's internal queue for processing.
+  /// Enqueues an input value for processing by the state.
   /// </summary>
-  /// <param name="input">The input value to process.</param>
-  /// <typeparam name="TInputType">The type of the input value.</typeparam>
+  /// <param name="input">The input value to enqueue.</param>
+  /// <typeparam name="TInputType">The type of the input value, which must be a value type.</typeparam>
   void Input<TInputType>(in TInputType input) where TInputType : struct;
 
   /// <summary>
-  /// Produces an output value from the states.
+  /// Sends an output value from the state to the external system or next process.
   /// </summary>
-  /// <typeparam name="TOutputType">The type of the output value.</typeparam>
-  /// <param name="output">The output value to produce.</param>
+  /// <typeparam name="TOutputType">The type of the output value, which must be a value type.</typeparam>
+  /// <param name="output">The output value to send.</param>
   void Output<TOutputType>(in TOutputType output) where TOutputType : struct;
 
   /// <summary>
-  /// Retrieves a value from the states's shared blackboard.
+  /// Fetches a value from the shared blackboard, which stores data accessible across states.
   /// </summary>
-  /// <typeparam name="TDataType">The type of the value to retrieve.</typeparam>
-  /// <returns>The retrieved value.</returns>
+  /// <typeparam name="TDataType">The type of the value to fetch, which must be a reference type.</typeparam>
+  /// <returns>The fetched value, or null if the value does not exist.</returns>
   TDataType Get<TDataType>() where TDataType : class;
 
   /// <summary>
-  /// Reports an error to the states for immediate handling.
+  /// Logs an error for the state to handle immediately.
   /// </summary>
-  /// <param name="e">The exception to report.</param>
+  /// <param name="e">The exception instance representing the error.</param>
   void AddError(Exception e);
 }

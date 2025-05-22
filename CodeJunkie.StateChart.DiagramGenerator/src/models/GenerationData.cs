@@ -1,5 +1,6 @@
 namespace CodeJunkie.StateChart.DiagramGenerator.Models;
 
-public record GenerationData(
-  IStateChartResult Result, GenerationOptions Options
-);
+/// <summary>
+/// Represents the data generated during the state chart generation process.
+/// </summary>
+public record GenerationData(IStateChartResult Result, GenerationOptions Options);

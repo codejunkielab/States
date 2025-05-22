@@ -8,195 +8,138 @@ using CodeJunkie.Collections;
 using CodeJunkie.Metadata;
 using CodeJunkie.Serialization;
 
-/// <summary>
-/// <para>
-/// A states. State charts are machines that receive input, maintain a
-/// single state, and produce outputs. They can be used as simple
-/// input-to-state reducers, or built upon to create hierarchical state
-/// machines.
-/// </para>
-/// <para>
-/// State charts are similar to statecharts, and enable the state pattern to
-/// be easily leveraged using traditional object oriented programming built
-/// into C#. Each state is a self-contained record.
-/// </para>
-/// </summary>
-/// <typeparam name="TState">State type.</typeparam>
 #if WITH_SERIALIZATION
+/// A state chart. State charts are machines that receive input, maintain a
+/// single state, and produce outputs. They can be used as simple
+/// input-to-state reducers or extended to create hierarchical state
+/// machines.
 public interface IStateChart<TState> : IStateChartBase, ISerializableBlackboard where TState : StateLogic<TState> {
 #else
+/// <summary>
+/// State charts are similar to state machines and enable the state pattern to
+/// be easily utilized using traditional object-oriented programming in C#.
+/// Each state is a self-contained record.
+/// </summary>
+/// <typeparam name="TState">The type of the state logic used in the state chart.</typeparam>
 public interface IStateChart<TState> : IStateChartBase, IBlackboard where TState : StateLogic<TState> {
 #endif
   /// <summary>
-  /// State chart execution context.
+  /// Gets the context associated with the state chart, providing access to shared resources and state management.
   /// </summary>
   IContext Context { get; }
 
-  /// <summary>Current state of the states.</summary>
+  /// <summary>
+  /// Gets the current state of the state chart.
+  /// </summary>
   TState Value { get; }
 
   /// <summary>
-  /// Whether or not the states is currently processing inputs.
+  /// Indicates whether the state chart is currently processing inputs or transitioning between states.
   /// </summary>
   bool IsProcessing { get; }
 
   /// <summary>
-  /// Whether or not the states has been started. A states is started
-  /// if its underlying state has been initialized.
+  /// Indicates whether the state chart has been started and is in an active state.
   /// </summary>
   bool IsStarted { get; }
 
   /// <summary>
-  /// Returns the initial state of the states. Implementations must
-  /// override this to provide a valid initial state.
+  /// Retrieves the initial state of the state chart.
   /// </summary>
-  /// <returns>Initial states state.</returns>
+  /// <returns>A <see cref="StateChart{TState}.Transition"/> representing the initial state.</returns>
   StateChart<TState>.Transition GetInitialState();
 
   /// <summary>
-  /// Adds an input value to the states's internal input queue.
+  /// Processes an input and transitions the state chart to the appropriate state based on the input.
   /// </summary>
-  /// <param name="input">Input to process.</param>
-  /// <typeparam name="TInputType">Type of the input.</typeparam>
-  /// <returns>State chart input return value.</returns>
+  /// <typeparam name="TInputType">The type of the input being processed.</typeparam>
+  /// <param name="input">The input to process.</param>
+  /// <returns>The current state after processing the input.</returns>
   TState Input<TInputType>(in TInputType input) where TInputType : struct;
 
   /// <summary>
-  /// Creates a binding to a states.
+  /// Creates a binding for the state chart, allowing external components to monitor or interact with its states and transitions.
   /// </summary>
-  /// <returns>State chart binding.</returns>
+  /// <returns>An <see cref="StateChart{TState}.IBinding"/> instance for managing bindings.</returns>
   StateChart<TState>.IBinding Bind();
 
   /// <summary>
-  /// Starts the states by entering the current state. If the states
-  /// is already started, nothing happens. If the states
-  /// has not initialized its underlying state, it will initialize it by calling
-  /// <see cref="GetInitialState" /> and attaching it to the states first.
+  /// Starts the state chart, initializing its state and enabling state transitions.
   /// </summary>
   void Start();
 
   /// <summary>
-  /// Stops the states. This calls any OnExit callbacks the current state
-  /// registered before detaching it. If any inputs are created while the
-  /// state is exiting and detaching, they are cleared instead of being
-  /// processed.
+  /// Stops the state chart, clearing its state and disabling further transitions.
   /// </summary>
   void Stop();
 
   /// <summary>
-  /// <para>
-  /// Forcibly resets the states to the specified state, even if the
-  /// StateChart is on another state that would never transition to the
-  /// given state. This can be leveraged by systems outside the states's
-  /// own states to force the states to a specific state, such as when
-  /// deserializing a states state.
-  /// </para>
-  /// <para>
-  /// If the states has no underlying state (because it hasn't been started
-  /// or was stopped), this will make the specified state the initial state.
-  /// </para>
-  /// <para>
-  /// When resetting, the states will exit and detach any current state,
-  /// if it has one, before attaching and entering the given state.
-  /// </para>
+  /// Forces the state chart to reset to a specified state, bypassing normal transition rules.
   /// </summary>
-  /// <param name="state">State to forcibly reset to.</param>
+  /// <param name="state">The state to reset to.</param>
+  /// <returns>The new current state after the reset.</returns>
   TState ForceReset(TState state);
 
   /// <summary>
-  /// Restores the states from a deserialized states.
+  /// Restores the state chart from another state chart instance, optionally calling the OnEnter method of the restored state.
   /// </summary>
-  /// <param name="logic">Other states.</param>
-  /// <param name="shouldCallOnEnter">Whether or not to call OnEnter callbacks
-  /// when entering the restored state.</param>
+  /// <param name="logic">The state chart instance to restore from.</param>
+  /// <param name="shouldCallOnEnter">Indicates whether to call the OnEnter method of the restored state.</param>
   void RestoreFrom(IStateChart<TState> logic, bool shouldCallOnEnter = true);
 
   /// <summary>
-  /// Adds a binding to the states. This is used internally by the standard
-  /// bindings implementation. Prefer using <see cref="Bind" /> to create an
-  /// instance of the standard bindings which allow you to easily observe a
-  /// states's inputs, states, outputs, and exceptions.
+  /// Adds a binding to the state chart, allowing external components to monitor or interact with its states and transitions.
   /// </summary>
-  /// <param name="binding">State chart binding.</param>
+  /// <param name="binding">The binding to add.</param>
   void AddBinding(IStateChartBinding<TState> binding);
 
   /// <summary>
-  /// Removes a binding from the states. This is used internally by the
-  /// standard bindings implementation. Prefer using <see cref="Bind" /> to
-  /// create an instance of the standard bindings which allow you to easily
-  /// observe a states's inputs, states, outputs, and exceptions.
+  /// Removes a binding from the state chart.
   /// </summary>
-  /// <param name="binding">State chart binding.</param>
+  /// <param name="binding">The binding to remove.</param>
   void RemoveBinding(IStateChartBinding<TState> binding);
 }
 
-/// <summary>
-/// <para>
-/// A synchronous states. State charts are machines that process inputs
-/// one-at-a-time, maintain a current state graph, and produce outputs.
-/// </para>
-/// <para>
-/// State charts are essentially statecharts that are created using the state
-/// pattern. Each state is a self-contained record.
-/// </para>
-/// </summary>
-/// <typeparam name="TState">State type.</typeparam>
-public abstract partial class StateChart<TState> : StateChartBase,
-IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
-  // We do want static members on generic types here since it makes for a
-  // really ergonomic API.
+public abstract partial class StateChart<TState> : StateChartBase, IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
   /// <summary>
-  /// Creates a fake logic binding that can be used to more easily test objects
-  /// that bind to statess.
+  /// Creates a fake binding for testing purposes. This allows manual triggering of bindings
+  /// to simulate state changes, inputs, outputs, and errors.
   /// </summary>
-  /// <returns>Fake binding.</returns>
   public static IFakeBinding CreateFakeBinding() => new FakeBinding();
-
-  /// <inheritdoc />
-  public IContext Context { get; }
-
-  /// <inheritdoc />
-  public bool IsProcessing => _isProcessing > 0;
-
-  /// <inheritdoc />
-  public bool IsStarted => _value is not null;
-
-  /// <inheritdoc />
-  public TState Value => _value ?? Flush();
-
-  #region StateChartBase
-  /// <inheritdoc />
-  public override object? ValueAsObject => _value;
-
-  /// <inheritdoc />
-  public override void RestoreState(object state) {
-    if (_value is not null) {
-      throw new StateChartException(
-        "Cannot restore state once a state has been initialized."
-      );
-    }
-
-    RestoredState = (TState)state;
-  }
-  #endregion StateChartBase
 
   private TState? _value;
   private int _isProcessing;
   private readonly BoxlessQueue _inputs;
   private readonly HashSet<IStateChartBinding<TState>> _bindings = new();
 
-  // Sometimes, it is preferable not to call OnEnter callbacks when starting
-  // a states, such as when restoring from a saved / serialized state chart.
   private bool _shouldCallOnEnter = true;
 
+  /// <inheritdoc />
   /// <summary>
-  /// <para>Creates a new StateChart.</para>
-  /// <para>
-  /// A states is a machine that receives input, maintains a
-  /// single state, and produces outputs. It can be used as a simple
-  /// input-to-state reducer, or built upon to create a hierarchical state
-  /// machine.
-  /// </para>
+  /// Gets the context associated with the state chart, which provides access to shared resources and state management.
+  /// </summary>
+  public IContext Context { get; }
+
+  /// <inheritdoc />
+  /// <summary>
+  /// Indicates whether the state chart is currently processing inputs or transitioning between states.
+  /// </summary>
+  public bool IsProcessing => _isProcessing > 0;
+
+  /// <inheritdoc />
+  /// <summary>
+  /// Indicates whether the state chart has been started and is in an active state.
+  /// </summary>
+  public bool IsStarted => _value is not null;
+
+  /// <inheritdoc />
+  /// <summary>
+  /// Gets the current state of the state chart. If no state is set, it initializes the state chart.
+  /// </summary>
+  public TState Value => _value ?? Flush();
+
+  /// <summary>
+  /// The state to restore to when the state chart is initialized.
   /// </summary>
   protected StateChart() {
     _inputs = new(this);
@@ -211,9 +154,7 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
   public virtual IBinding Bind() => new Binding(this);
 
   /// <inheritdoc />
-  public virtual TState Input<TInputType>(
-    in TInputType input
-  ) where TInputType : struct {
+  public virtual TState Input<TInputType>(in TInputType input) where TInputType : struct {
     if (IsProcessing) {
       _inputs.Enqueue(input);
       return Value;
@@ -228,10 +169,7 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
     Flush();
   }
 
-  /// <summary>
-  /// Called when the states is started. Override this method to
-  /// perform any initialization logic.
-  /// </summary>
+  /// <inheritdoc />
   public virtual void OnStart() { }
 
   /// <inheritdoc />
@@ -240,28 +178,22 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
 
     OnStop();
 
-    // Repeatedly exit and detach the current state until there is none.
     ChangeState(null);
 
     _inputs.Clear();
 
-    // A state finally exited and detached without queuing additional inputs.
     _value = null;
   }
 
-  /// <summary>
-  /// Called when the states is stopped. Override this method to
-  /// perform any cleanup logic.
-  /// </summary>
+  /// <inheritdoc />
   public virtual void OnStop() { }
 
   /// <inheritdoc />
   public TState ForceReset(TState state) {
     if (IsProcessing) {
       throw new StateChartException(
-        "Cannot force reset a states while it is processing inputs. " +
-        "Do not call ForceReset() from inside a states's own state."
-      );
+          "Force reset failed: The state chart is currently processing inputs. " +
+          "Avoid calling ForceReset() from within the state's own processing logic.");
     }
 
     ChangeState(state);
@@ -280,58 +212,40 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
     _bindings.Remove(binding);
 
   /// <summary>
-  /// <para>
-  /// Determines if the states can transition to the next state.
-  /// </para>
-  /// <para>
-  /// A states can only transition to a state if the state is not
-  /// equivalent to the current state. That is, the state must not be the same
-  /// reference and must not be equal to the current state (as determined by
-  /// the default equality comparer).
-  /// </para>
+  /// Determines whether the state chart can transition to the specified state.
   /// </summary>
-  /// <param name="state">Next potential state.</param>
-  /// <returns>True if the states can change to the given state, false
-  /// otherwise.</returns>
+  /// <param name="state">The target state to transition to.</param>
+  /// <returns>True if the state can be changed; otherwise, false.</returns>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   protected virtual bool CanChangeState(TState? state) {
     return !SerializationUtilities.IsEquivalent(state, _value);
   }
 
   /// <summary>
-  /// Adds an error to the states. Call this from your states to
-  /// register errors that occur. State charts are designed to be resilient
-  /// to errors, so registering errors instead of stopping execution is
-  /// preferred in most cases.
+  /// Handles errors encountered during state chart execution by logging or processing the exception.
   /// </summary>
-  /// <param name="e">Exception to add.</param>
+  /// <param name="e">The exception to handle.</param>
   internal virtual void AddError(Exception e) {
     AnnounceException(e);
     HandleError(e);
   }
 
   /// <summary>
-  /// Produces an output. Outputs are one-shot side effects that allow you
-  /// to communicate with the world outside the states. Outputs are
-  /// equivalent to the idea of actions in statecharts.
+  /// Outputs a value from the state chart, notifying all bindings of the output.
   /// </summary>
-  /// <typeparam name="TOutput">Output type.</typeparam>
-  /// <param name="output">Output value.</param>
+  /// <typeparam name="TOutput">The type of the output value.</typeparam>
+  /// <param name="output">The output value to announce.</param>
   internal virtual void OutputValue<TOutput>(in TOutput output)
     where TOutput : struct => AnnounceOutput(output);
 
   /// <summary>
-  /// Called when the states encounters an error. Overriding this method
-  /// allows you to customize how errors are handled. If you throw the error
-  /// again from this method, you can make errors stop execution.
+  /// Handles errors encountered during state chart execution.
   /// </summary>
-  /// <param name="e">Exception that occurred.</param>
   protected virtual void HandleError(Exception e) { }
 
   /// <summary>
-  /// Defines a transition to a state stored on the states's blackboard.
+  /// Creates a transition to the specified state type.
   /// </summary>
-  /// <typeparam name="TStateType">Type of state to transition to.</typeparam>
   protected Transition To<TStateType>()
     where TStateType : TState => new(Context.Get<TStateType>());
 
@@ -390,8 +304,6 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
   public void Save<TData>(Func<TData> factory)
     where TData : class, IIdentifiable => Blackboard.Save(factory);
 
-  /// <inheritdoc
-  /// cref="ISerializableBlackboard.SaveObject(Type, Func{object}, object?)" />
   public void SaveObject(Type type,
                          Func<object> factory,
                          object? referenceValue) {
@@ -400,13 +312,16 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
 #endregion ISerializableBlackboard
 #endif
 
-  internal TState ProcessInputs<TInputType>(
-    TInputType? input = null
-  ) where TInputType : struct {
+  /// <summary>
+  /// Processes the input queue and transitions the state chart to the appropriate state based on the inputs.
+  /// </summary>
+  /// <typeparam name="TInputType">The type of input being processed.</typeparam>
+  /// <param name="input">An optional input to process immediately.</param>
+  /// <returns>The current state after processing inputs.</returns>
+  internal TState ProcessInputs<TInputType>(TInputType? input = null) where TInputType : struct {
     _isProcessing++;
 
     if (_value is null) {
-      // No state yet. Let's get the first state going!
 #if WITH_SERIALIZATION
       Blackboard.InstantiateAnyMissingSavedData();
 #endif
@@ -415,8 +330,6 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
       OnStart();
     }
 
-    // We can always process the first input directly.
-    // This keeps single inputs off the heap.
     if (input.HasValue) {
       (this as IBoxlessValueHandler).HandleValue(input.Value);
     }
@@ -438,15 +351,11 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
       return;
     }
 
-    // Run the input handler on the state to get the next state.
     var state = RunInputHandler(stateWithInputHandler, in input, _value);
 
     AnnounceInput(in input);
 
     if (!CanChangeState(state)) {
-      // The only time we can't change states is if the new state is
-      // equivalent to the old state (determined by the default equality
-      // comparer)
       return;
     }
 
@@ -520,38 +429,25 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
     return fallback;
   }
 
-  /// <summary>
-  /// Processes inputs and changes state until there are no more inputs.
-  /// </summary>
-  /// <returns>The resting state.</returns>
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
   private TState Flush() => ProcessInputs<int>();
 
-  /// <summary>
-  /// Determines if two statess are equivalent. State charts are equivalent
-  /// if they are the same reference, or if each of their states and blackboards
-  /// are equivalent.
-  /// </summary>
-  /// <param name="obj">Other states.</param>
-  /// <returns>True if</returns>
+  /// <inheritdoc />
   public override bool Equals(object? obj) {
     if (ReferenceEquals(this, obj)) { return true; }
 
     if (obj is not StateChartBase logic) { return false; }
 
     if (GetType() != logic.GetType()) {
-      // Two different types of statess are never equal.
       return false;
     }
 
-    // Ensure current states are equal.
     if (
       !SerializationUtilities.IsEquivalent(ValueAsObject, logic.ValueAsObject)
     ) {
       return false;
     }
 
-    // Ensure blackboard entries are equal.
     var types = Blackboard.Types;
     var otherTypes = logic.Blackboard.Types;
 
@@ -573,22 +469,17 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
     return true;
   }
 
-  // Equivalent statess have different hash codes because they are
-  // different instances.
   /// <inheritdoc />
   public override int GetHashCode() => base.GetHashCode();
 
   /// <inheritdoc />
-  public void RestoreFrom(
-    IStateChart<TState> logic, bool shouldCallOnEnter = true
-  ) {
+  public void RestoreFrom(IStateChart<TState> logic, bool shouldCallOnEnter = true) {
     _shouldCallOnEnter = shouldCallOnEnter;
 
     if ((logic.ValueAsObject ?? logic.RestoredState) is not TState state) {
       throw new StateChartException(
-        $"Cannot restore from an uninitialized states ({logic}). Please " +
-        "make sure you've called Start() on it first."
-      );
+          $"State restoration failed: The provided state chart ({logic}) is uninitialized. " +
+          "Ensure that Start() has been called on the state chart before attempting to restore.");
     }
 
     Stop();
@@ -601,4 +492,20 @@ IStateChart<TState>, IBoxlessValueHandler where TState : StateLogic<TState> {
     OverwriteObject(stateType, state);
     RestoreState(state);
   }
+
+  #region StateChartBase
+  /// <inheritdoc />
+  public override object? ValueAsObject => _value;
+
+  /// <inheritdoc />
+  public override void RestoreState(object state) {
+    if (_value is not null) {
+      throw new StateChartException(
+          "State restoration failed: The state chart has already been initialized. " +
+          "Ensure that the state chart is uninitialized before calling RestoreState().");
+    }
+
+    RestoredState = (TState)state;
+  }
+  #endregion StateChartBase
 }

@@ -4,55 +4,44 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Internal state stored in each states state. This is used to store
-/// entrance and exit callbacks without tripping up equality checking.
+/// Represents the internal state of a state chart.
 /// </summary>
 internal class InternalState {
   /// <summary>
-  /// Callbacks to be invoked when the state is entered.
+  /// Queue of callbacks executed upon entering the state.
   /// </summary>
   internal Queue<UpdateCallback> EnterCallbacks { get; }
 
   /// <summary>
-  /// Callbacks to be invoked when the state is exited.
+  /// Stack of callbacks executed upon exiting the state.
   /// </summary>
   internal Stack<UpdateCallback> ExitCallbacks { get; }
 
   /// <summary>
-  /// Callbacks to be invoked when the state is attached to the states.
+  /// Queue of callbacks executed when the state is attached to the state chart.
   /// </summary>
   internal Queue<Action> AttachCallbacks { get; } = new();
 
   /// <summary>
-  /// Callbacks to be invoked when the state is detached from the states.
+  /// Stack of callbacks executed when the state is detached from the state chart.
   /// </summary>
   internal Stack<Action> DetachCallbacks { get; } = new();
 
   /// <summary>
-  /// <para>
-  /// Internal context adapter. If there's no underlying context in the
-  /// adapter, the context has not been initialized yet. An uninitialized
-  /// context implies the state has never been active in a states.
-  /// </para>
-  /// <para>
-  /// If an underlying object exists, it is either the real states
-  /// context or a fake one supplied to facilitate unit-testing.
-  /// </para>
+  /// Adapter for managing the state context. If uninitialized, the state has not been activated.
+  /// Can represent the actual state context or a mock for testing purposes.
   /// </summary>
   internal IContextAdapter ContextAdapter { get; }
 
-  /// <summary>Creates a new state logic internal state.</summary>
-  /// <param name="contextAdapter">StateChart context adapter.</param>
+  /// <summary>
+  /// Initializes a new instance of the internal state with the specified context adapter.
+  /// </summary>
+  /// <param name="contextAdapter">The context adapter for the state chart.</param>
   public InternalState(IContextAdapter contextAdapter) {
     EnterCallbacks = new();
     ExitCallbacks = new();
     ContextAdapter = contextAdapter;
   }
-
-  // We don't want state logic states to be compared, so we make them
-  // always equal to whatever other state logic state they are compared to.
-  // This prevents issues where two seemingly equivalent states are not
-  // deemed equivalent because their callbacks are different.
 
   /// <inheritdoc />
   public override bool Equals(object? obj) => true;

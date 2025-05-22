@@ -3,40 +3,38 @@ namespace CodeJunkie.StateChart;
 using System;
 
 /// <summary>
-/// State chart state. Inherit from this class to create a base state for a
-/// states.
+/// Initializes a new instance of the state logic class.
+/// This serves as the base for defining state-specific behavior.
 /// </summary>
 /// <typeparam name="TState">State type inheriting from this record.</typeparam>
 public abstract record StateLogic<TState> : StateBase
-  where TState : StateLogic<TState> {
+where TState : StateLogic<TState> {
   /// <summary>
-  /// State chart state. Inherit from this class to create a base state for a
-  /// states.
+  /// Initializes a new instance of the <see cref="StateLogic{TState}"/> class.
   /// </summary>
   protected StateLogic() : base(new StateChart<TState>.ContextAdapter()) { }
 
   /// <inheritdoc />
   internal override void OnEnter<TDerivedState>(Action<object?> handler)
     => InternalState.EnterCallbacks.Enqueue(
-      new((obj) => handler(obj as TState), typeof(TDerivedState))
-    );
+        new((obj) => handler(obj as TState), typeof(TDerivedState)));
 
   /// <inheritdoc />
   internal override void OnExit<TDerivedState>(Action<object?> handler)
     => InternalState.ExitCallbacks.Push(
-      new((obj) => handler(obj as TState), typeof(TDerivedState))
-    );
+        new((obj) => handler(obj as TState), typeof(TDerivedState)));
 
   /// <summary>
-  /// Runs all of the registered entrance callbacks for the state.
+  /// Executes all registered entry callbacks for the current state.
+  /// These callbacks are triggered when the state is entered.
   /// </summary>
   /// <param name="previous">Previous state, if any.</param>
   public void Enter(TState? previous = default) =>
     CallOnEnterCallbacks(previous, this as TState);
 
   /// <summary>
-  /// Runs all of the registered entrance callbacks for the state. To facilitate
-  /// testing, only the type of the previous state needs to be specified.
+  /// Executes all registered entry callbacks for the current state.
+  /// These callbacks are triggered when the state is entered.
   /// </summary>
   /// <typeparam name="TPreviousState">Type of the previous state, if any.
   /// </typeparam>
@@ -44,7 +42,8 @@ public abstract record StateLogic<TState> : StateBase
     CallOnEnterCallbacks(typeof(TPreviousState), this as TState);
 
   /// <summary>
-  /// Runs all of the registered exit callbacks for the state.
+  /// Executes all registered exit callbacks for the current state.
+  /// These callbacks are triggered when the state is exited.
   /// </summary>
   /// <param name="next">Next state, if any.</param>
   public void Exit(TState? next = default) =>
@@ -59,7 +58,8 @@ public abstract record StateLogic<TState> : StateBase
     CallOnExitCallbacks(this as TState, typeof(TNextState));
 
   /// <summary>
-  /// Defines a transition to a state stored on the states's blackboard.
+  /// Defines a transition to another state stored in the state's blackboard.
+  /// This is used to specify the target state for a transition.
   /// </summary>
   /// <typeparam name="TStateType">Type of state to transition to.</typeparam>
   protected StateChart<TState>.Transition To<TStateType>()
@@ -69,8 +69,8 @@ public abstract record StateLogic<TState> : StateBase
   protected StateChart<TState>.Transition ToSelf() => new((this as TState)!);
 
   /// <summary>
-  /// Adds an input value to the states's internal input queue and
-  /// returns the current state.
+  /// Adds an input value to the state's internal input queue.
+  /// This allows the state to process the input as part of its logic.
   /// </summary>
   /// <param name="input">Input to process.</param>
   /// <typeparam name="TInputType">Type of the input.</typeparam>
@@ -78,7 +78,8 @@ public abstract record StateLogic<TState> : StateBase
     where TInputType : struct => Context.Input(input);
 
   /// <summary>
-  /// Produces a states output value.
+  /// Produces an output value for the state.
+  /// This is used to emit data from the state during its execution.
   /// </summary>
   /// <typeparam name="TOutputType">Type of output to produce.</typeparam>
   /// <param name="output">Output value.</param>
@@ -86,16 +87,17 @@ public abstract record StateLogic<TState> : StateBase
     where TOutputType : struct => Context.Output(output);
 
   /// <summary>
-  /// Gets data from the blackboard.
+  /// Retrieves data from the state's blackboard.
+  /// The blackboard serves as a shared storage for state-specific data.
   /// </summary>
   /// <typeparam name="TData">The type of data to retrieve.</typeparam>
   /// <exception cref="System.Collections.Generic.KeyNotFoundException" />
   protected TData Get<TData>() where TData : class => Context.Get<TData>();
 
   /// <summary>
-  /// Adds an error to a states. Errors are immediately processed by the
-  /// states's <see cref="StateChart{TState}.HandleError(Exception)"/>
-  /// callback.
+  /// Adds an error to the state.
+  /// Errors are immediately processed by the state's
+  /// <see cref="StateChart{TState}.HandleError(Exception)"/> callback.
   /// </summary>
   /// <param name="e">Exception to add.</param>
   protected void AddError(Exception e) => Context.AddError(e);
@@ -104,7 +106,6 @@ public abstract record StateLogic<TState> : StateBase
     if (next is StateLogic<TState> nextLogic) {
       foreach (var onEnter in nextLogic.InternalState.EnterCallbacks) {
         if (onEnter.IsType(previous)) {
-          // Already entered this state type.
           continue;
         }
         RunSafe(onEnter.Callback, previous);
@@ -116,7 +117,6 @@ public abstract record StateLogic<TState> : StateBase
     if (previous is StateLogic<TState> previousLogic) {
       foreach (var onExit in previousLogic.InternalState.ExitCallbacks) {
         if (onExit.IsType(next)) {
-          // Not actually leaving this state type.
           continue;
         }
         RunSafe(onExit.Callback, next);
@@ -124,10 +124,10 @@ public abstract record StateLogic<TState> : StateBase
     }
   }
 
-  private void RunSafe(
-    Action<object?> callback, object? stateArg
-  ) {
-    try { callback(stateArg); }
+  private void RunSafe(Action<object?> callback, object? stateArg) {
+    try {
+      callback(stateArg);
+    }
     catch (Exception e) {
       if (InternalState.ContextAdapter.OnError is { } onError) {
         onError(e);

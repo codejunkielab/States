@@ -7,29 +7,38 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 /// <summary>
-/// Custom string interpolation handler. When string enumerable expressions
-/// are interpolated inside a string, the handler will automatically indent
-/// subsequent lines to match the indent where the first line occurs.
+/// An interpolated string handler that handles indentation for formatted strings.
 /// </summary>
 [InterpolatedStringHandler]
 public readonly ref struct IndentationAwareInterpolationHandler {
   private class State {
     public bool EndedOnWhitespace { get; set; }
     public int Indent { get; set; }
-    public string Prefix => new(' ', Indent * Constants.SPACES_PER_INDENT);
+    public string Prefix => new(' ', Indent * Constants.SpacesPerIndent);
   }
 
-  private readonly StringBuilder _sb;
+  private readonly StringBuilder _builder;
   private readonly State _state = new();
 
-  public IndentationAwareInterpolationHandler(
-    int literalLength, int formattedCount
-  ) {
-    _sb = new StringBuilder(literalLength);
+  /// <summary>
+  /// Initializes a new instance of the <see cref="IndentationAwareInterpolationHandler"/> class.
+  /// </summary>
+  /// <param name="literalLength">The length of the literal string.</param>
+  /// <param name="formattedCount">The number of formatted strings.</param>
+  public IndentationAwareInterpolationHandler(int literalLength, int formattedCount) {
+    _builder = new StringBuilder(literalLength);
   }
 
+  /// <summary>
+  /// Appends a formatted string to the builder.
+  /// </summary>
+  /// <param name="s">The literal string.</param>
   public void AppendLiteral(string s) => AddString(s);
 
+  /// <summary>
+  /// Appends a formatted string to the builder.
+  /// </summary>
+  /// <typeparam name="T">The type of the formatted string.</typeparam>
   public void AppendFormatted<T>(T? t) {
     if (t is not T item) {
       return;
@@ -43,8 +52,13 @@ public readonly ref struct IndentationAwareInterpolationHandler {
       return;
     }
 
-    _sb.Append(item.ToString());
+    _builder.Append(item.ToString());
   }
+
+  /// <summary>
+  /// Returns the formatted text.
+  /// </summary>
+  internal string GetFormattedText() => _builder.ToString();
 
   private void AddString(string s) {
     var value = s.NormalizeLineEndings();
@@ -53,25 +67,19 @@ public readonly ref struct IndentationAwareInterpolationHandler {
     var remainingNonWs = remainingString.TrimEnd();
     _state.EndedOnWhitespace = remainingNonWs.Length == 0;
     _state.Indent = _state.EndedOnWhitespace
-      ? remainingString.Length / Constants.SPACES_PER_INDENT
+      ? remainingString.Length / Constants.SpacesPerIndent
       : 0;
-    _sb.Append(value);
+    _builder.Append(value);
   }
 
   private void AddLines(IEnumerable<string> lines) {
-    // Makes subsequent lines after the first share the same initial
-    // indentation amount as where the first line occurs, plus any additional
-    // indent added by the line.
     var prefix = _state.Prefix;
     var value = string.Join(
-      Environment.NewLine,
-      lines.Take(1).Concat(lines.Skip(1).Select((line) => prefix + line))
-    );
+        Environment.NewLine,
+        lines.Take(1).Concat(lines.Skip(1).Select((line) => prefix + line)));
     if (string.IsNullOrEmpty(value)) {
       return;
     }
-    _sb.Append(value);
+    _builder.Append(value);
   }
-
-  internal string GetFormattedText() => _sb.ToString();
 }

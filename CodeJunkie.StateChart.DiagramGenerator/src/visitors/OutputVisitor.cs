@@ -10,37 +10,57 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
+/// <summary>
+/// Visitor for analyzing output types in state chart classes.
+/// </summary>
 public class OutputVisitor : CSharpSyntaxWalker {
+  /// <summary>
+  /// The semantic model for the current syntax tree.
+  /// </summary>
   public SemanticModel Model { get; }
+
+  /// <summary>
+  /// The cancellation token for the current operation.
+  /// </summary>
   public CancellationToken Token { get; }
+
+  /// <summary>
+  /// The code service for generating code.
+  /// </summary>
   public ICodeService CodeService { get; }
-  private readonly
-    ImmutableDictionary<IOutputContext, HashSet<StateChartOutput>>.Builder
-      _outputTypes = ImmutableDictionary
-        .CreateBuilder<IOutputContext, HashSet<StateChartOutput>>();
+
+  private readonly ImmutableDictionary<IOutputContext, HashSet<StateChartOutput>>.Builder _outputTypes =
+    ImmutableDictionary.CreateBuilder<IOutputContext, HashSet<StateChartOutput>>();
   private readonly Stack<IOutputContext> _outputContexts = new();
   private IOutputContext OutputContext => _outputContexts.Peek();
 
-  public ImmutableDictionary<IOutputContext, ImmutableHashSet<StateChartOutput>>
-    OutputTypes => _outputTypes.ToImmutableDictionary(
-      pair => pair.Key, pair => pair.Value.ToImmutableHashSet()
-    );
+  /// <summary>
+  /// Gets the output types for the current state chart.
+  /// </summary>
+  public ImmutableDictionary<IOutputContext, ImmutableHashSet<StateChartOutput>> OutputTypes =>
+    _outputTypes.ToImmutableDictionary(pair => pair.Key, pair => pair.Value.ToImmutableHashSet());
 
-  public OutputVisitor(
-    SemanticModel model,
-    CancellationToken token,
-    ICodeService service,
-    IOutputContext startContext
-  ) {
+  /// <summary>
+  /// Initializes a new instance of the <see cref="OutputVisitor"/> class.
+  /// </summary>
+  /// <param name="model">The semantic model for the current syntax tree.</param>
+  /// <param name="token">The cancellation token for the current operation.</param>
+  /// <param name="service">The code service for generating code.</param>
+  /// <param name="startContext">The initial output context.</param>
+  public OutputVisitor(SemanticModel model,
+                       CancellationToken token,
+                       ICodeService service,
+                       IOutputContext startContext) {
     Model = model;
     Token = token;
     CodeService = service;
     _outputContexts.Push(startContext);
   }
 
-  public override void VisitInvocationExpression(
-    InvocationExpressionSyntax node
-  ) {
+  /// <summary>
+  /// Visits a method declaration and processes its body.
+  /// </summary>
+  public override void VisitInvocationExpression(InvocationExpressionSyntax node) {
     void pushContext(IOutputContext context) {
       _outputContexts.Push(context);
       var pushedContext = true;
@@ -63,7 +83,7 @@ public class OutputVisitor : CSharpSyntaxWalker {
 
       methodName = identifierName.Identifier.ValueText;
 
-      if (methodName != Constants.STATE_CHART_STATE_OUTPUT) {
+      if (methodName != Constants.StateChartStateOutput) {
         base.VisitInvocationExpression(node);
         return;
       }
@@ -95,7 +115,7 @@ public class OutputVisitor : CSharpSyntaxWalker {
     if (memberAccess.Expression is ThisExpressionSyntax) {
       if (
         memberAccess.Name.Identifier.ValueText is
-          Constants.STATE_CHART_STATE_LOGIC_ON_ENTER
+          Constants.StateChartStateLogicOnEnter
       ) {
         pushContext(OutputContexts.OnEnter);
         return;
@@ -103,15 +123,21 @@ public class OutputVisitor : CSharpSyntaxWalker {
 
       if (
         memberAccess.Name.Identifier.ValueText is
-          Constants.STATE_CHART_STATE_LOGIC_ON_EXIT
+          Constants.StateChartStateLogicOnExit
       ) {
         pushContext(OutputContexts.OnExit);
       }
     }
   }
 
-  // Don't visit nested types.
+  /// <summary>
+  /// Visits a class declaration and processes its members.
+  /// </summary>
   public override void VisitClassDeclaration(ClassDeclarationSyntax node) { }
+
+  /// <summary>
+  /// Visits a struct declaration and processes its members.
+  /// </summary>
   public override void VisitStructDeclaration(StructDeclarationSyntax node) { }
 
   private void AddOutput(string id, string name) {

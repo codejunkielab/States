@@ -4,45 +4,60 @@ using System;
 
 public abstract partial class StateChart<TState> {
   /// <summary>
-  /// Fake binding that allows bindings to be triggered manually. Makes testing
-  /// objects that bind to statess easier.
+  /// Provides a fake binding mechanism that allows manual triggering of bindings.
+  /// This is particularly useful for testing objects that bind to states.
   /// </summary>
   public interface IFakeBinding : IBinding {
     /// <summary>
-    /// Triggers bindings to run in response to a state change.
+    /// Manually triggers bindings in response to a state change.
     /// </summary>
-    /// <param name="state">State.</param>
+    /// <param name="state">The new state to set.</param>
     void SetState(TState state);
+
     /// <summary>
-    /// Triggers bindings to run in response to a new input.
+    /// Manually triggers bindings in response to a new input.
     /// </summary>
-    /// <typeparam name="TInputType">Input type.</typeparam>
-    /// <param name="input">Input.</param>
+    /// <typeparam name="TInputType">The type of the input.</typeparam>
+    /// <param name="input">The input value to process.</param>
     void Input<TInputType>(in TInputType input) where TInputType : struct;
+
     /// <summary>
-    /// Triggers bindings to run in response to an output.
+    /// Manually triggers bindings in response to an output.
     /// </summary>
-    /// <typeparam name="TOutputType">Output type.</typeparam>
-    /// <param name="output">Output.</param>
+    /// <typeparam name="TOutputType">The type of the output.</typeparam>
+    /// <param name="output">The output value to process.</param>
     void Output<TOutputType>(in TOutputType output) where TOutputType : struct;
+
     /// <summary>
-    /// Triggers bindings to run in response to an error.
+    /// Manually triggers bindings in response to an error.
     /// </summary>
-    /// <param name="error">Error.</param>
+    /// <param name="error">The exception to handle.</param>
     void AddError(Exception error);
   }
 
+  /// <summary>
+  /// A concrete implementation of <see cref="IFakeBinding"/> that provides
+  /// mechanisms to manually monitor state changes, inputs, outputs, and errors.
+  /// </summary>
   internal sealed class FakeBinding : BindingBase, IFakeBinding {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FakeBinding"/> class.
+    /// </summary>
     internal FakeBinding() { }
 
-    public void Input<TInputType>(in TInputType input)
-    where TInputType : struct =>
+    /// <inheritdoc />
+    public void Input<TInputType>(in TInputType input) where TInputType : struct =>
       (this as IStateChartBinding<TState>).MonitorInput(input);
+
+    /// <inheritdoc />
     public void SetState(TState state) =>
       (this as IStateChartBinding<TState>).MonitorState(state);
-    public void Output<TOutputType>(in TOutputType output)
-    where TOutputType : struct =>
+
+    /// <inheritdoc />
+    public void Output<TOutputType>(in TOutputType output) where TOutputType : struct =>
       (this as IStateChartBinding<TState>).MonitorOutput(output);
+
+    /// <inheritdoc />
     public void AddError(Exception error) =>
       (this as IStateChartBinding<TState>).MonitorException(error);
   }

@@ -3,27 +3,27 @@ namespace CodeJunkie.StateChart;
 using System;
 
 /// <summary>
-/// Internal adapter interface for managing and adapting states contexts.
+/// Represents an interface for adapting and managing a context instance.
 /// </summary>
 internal interface IContextAdapter : IContext {
   /// <summary>
-  /// Gets the current context instance.
+  /// Retrieves the current context instance being managed by the adapter.
   /// </summary>
   IContext? Context { get; }
 
   /// <summary>
-  /// Adapts the specified context for use.
+  /// Configures the adapter to use the specified context.
   /// </summary>
-  /// <param name="context">The context to adapt.</param>
+  /// <param name="context">The context instance to adapt and manage.</param>
   void Adapt(IContext context);
 
   /// <summary>
-  /// Clears the current context and resets the adapter.
+  /// Resets the adapter by clearing the current context.
   /// </summary>
   void Clear();
 
   /// <summary>
-  /// Gets the error handling callback for the states.
+  /// Provides the callback function for handling errors within states.
   /// </summary>
   Action<Exception>? OnError { get; }
 }

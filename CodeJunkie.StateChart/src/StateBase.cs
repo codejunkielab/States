@@ -3,28 +3,29 @@ namespace CodeJunkie.StateChart;
 using System;
 
 /// <summary>
-/// State chart state base class. Used internally by StateCharts.
-/// Prefer <see cref="StateLogic{TState}"/> over this for user-defined states.
+/// Serves as the foundational class for states within a state chart.
+/// This class is primarily intended for internal use by the StateChart framework.
+/// For user-defined states, it is recommended to extend <see cref="StateLogic{TState}"/>
+/// for better customization and functionality.
 /// </summary>
 public abstract record StateBase {
   /// <inheritdoc />
   internal IContext Context => InternalState.ContextAdapter;
-
   internal InternalState InternalState { get; }
+  internal bool IsAttached => InternalState.ContextAdapter.Context is not null;
 
   internal StateBase(IContextAdapter contextAdapter) {
     InternalState = new(contextAdapter);
   }
 
-  internal bool IsAttached => InternalState.ContextAdapter.Context is not null;
-
   /// <summary>
-  /// Creates a fake context and assigns it internally to be the state's
-  /// underlying context object. Fake contexts facilitate testing of logic
-  /// states in isolation, allowing interactions with the context to
-  /// be captured and verified more easily.
+  /// Generates and assigns a mock context to serve as the underlying context object for the state.
+  /// This is particularly useful for testing logic states in isolation, enabling easier verification
+  /// of interactions with the context during unit tests or debugging.
   /// </summary>
-  /// <returns>Fake states context.</returns>
+  /// <returns>
+  /// An instance of <see cref="IFakeContext"/> representing the mock context for the state.
+  /// </returns>
   public IFakeContext CreateFakeContext() {
     if (InternalState.ContextAdapter.Context is FakeContext fakeContext) {
       fakeContext.Reset();
@@ -37,40 +38,40 @@ public abstract record StateBase {
   }
 
   /// <summary>
-  /// Adds a callback that will be invoked when the state is attached to a
-  /// states. A state instance is attached to a states when it is
-  /// the active state of the states. Only one state instance can be
-  /// active at a time. Unlike entrance callbacks, all attach callbacks
-  /// will be invoked when the state is attached.
+  /// Adds a callback to be executed when the state is attached to a state chart.
+  /// A state is considered "attached" when it becomes the active state.
+  /// Unlike entrance callbacks, all registered attach callbacks are executed immediately upon attachment.
   /// </summary>
-  /// <param name="handler">Callback invoked when the state is attached.
+  /// <param name="handler">
+  /// A delegate representing the callback to invoke when the state is attached.
   /// </param>
   public void OnAttach(Action handler) =>
     InternalState.AttachCallbacks.Enqueue(handler);
 
   /// <summary>
-  /// Adds a callback that will be invoked when the state is detached from
-  /// a states. A state instance is detached from a states when it
-  /// is no longer the active state of the states. Only one state
-  /// instance can be active at a time. Unlike exit callbacks, all detach
-  /// callbacks will be invoked when the state is detached.
+  /// Adds a callback to be executed when the state is detached from a state chart.
+  /// A state is considered "detached" when it is no longer the active state.
+  /// Unlike exit callbacks, all registered detach callbacks are executed immediately upon detachment.
   /// </summary>
-  /// <param name="handler">Callback invoked when the state is detached.
+  /// <param name="handler">
+  /// A delegate representing the callback to invoke when the state is detached.
   /// </param>
   public void OnDetach(Action handler) =>
     InternalState.DetachCallbacks.Push(handler);
 
   /// <summary>
-  /// Runs all of the registered attach callbacks for the state.
+  /// Executes all callbacks that were registered for the state upon attachment.
   /// </summary>
-  /// <param name="context">State chart context.</param>
+  /// <param name="context">
+  /// The context of the state chart to which the state is being attached.
+  /// </param>
   public void Attach(IContext context) {
     InternalState.ContextAdapter.Adapt(context);
     CallAttachCallbacks();
   }
 
   /// <summary>
-  /// Runs all of the registered detach callbacks for the state.
+  /// Executes all callbacks that were registered for the state upon detachment.
   /// </summary>
   public void Detach() {
     if (!IsAttached) {
@@ -104,33 +105,35 @@ public abstract record StateBase {
     }
   }
 
-  /// <summary>
-  /// Adds a callback that will be invoked when the state is entered. The
-  /// callback will receive the previous state as an argument.
-  /// <br />
-  /// Each class in an inheritance hierarchy can register callbacks and they
-  /// will be invoked in the order they were registered, base class to most
-  /// derived class. This ordering matches the order in which entrance
-  /// callbacks should be invoked in a statechart.
-  /// </summary>
-  /// <typeparam name="TDerivedState">Derived state type that would be entered.
-  /// </typeparam>
-  /// <param name="handler">Callback to be invoked when the state is entered.
-  /// </param>
-  internal abstract void OnEnter<TDerivedState>(Action<object?> handler);
+    /// <summary>
+    /// Adds a callback to be executed when the state is entered.
+    /// The callback receives the previous state as an argument, allowing for
+    /// context-specific logic during the transition.
+    /// <br />
+    /// Callbacks are executed in the order they are registered, starting from the base class
+    /// and proceeding to the most derived class, ensuring consistency with state chart behavior.
+    /// </summary>
+    /// <typeparam name="TDerivedState">
+    /// The type of the derived state that is being entered.
+    /// </typeparam>
+    /// <param name="handler">
+    /// A delegate representing the callback to invoke upon state entry.
+    /// </param>
+    internal abstract void OnEnter<TDerivedState>(Action<object?> handler);
 
-  /// <summary>
-  /// Adds a callback that will be invoked when the state is exited. The
-  /// callback will receive the next state as an argument.
-  /// <br />
-  /// Each class in an inheritance hierarchy can register callbacks and they
-  /// will be invoked in the opposite order they were registered, most
-  /// derived class to base class. This ordering matches the order in which
-  /// exit callbacks should be invoked in a statechart.
-  /// </summary>
-  /// <typeparam name="TDerivedState">Derived state type that would be exited.
-  /// </typeparam>
-  /// <param name="handler">Callback to be invoked when the state is exited.
-  /// </param>
-  internal abstract void OnExit<TDerivedState>(Action<object?> handler);
+    /// <summary>
+    /// Adds a callback to be executed when the state is exited.
+    /// The callback receives the next state as an argument, enabling logic to be executed
+    /// during the transition to the next state.
+    /// <br />
+    /// Callbacks are executed in reverse order of registration, starting from the most derived class
+    /// and proceeding to the base class, ensuring consistency with state chart behavior.
+    /// </summary>
+    /// <typeparam name="TDerivedState">
+    /// The type of the derived state that is being exited.
+    /// </typeparam>
+    /// <param name="handler">
+    /// A delegate representing the callback to invoke upon state exit.
+    /// </param>
+    internal abstract void OnExit<TDerivedState>(Action<object?> handler);
 }

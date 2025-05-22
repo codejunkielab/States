@@ -1,5 +1,6 @@
 namespace CodeJunkie.StateChart.DiagramGenerator.Models;
 
-public record GenerationOptions(
-  bool StateChartsDiagramGeneratorDisabled
-);
+/// <summary>
+/// Represents the options for generating state charts.
+/// </summary>
+public record GenerationOptions(bool StateChartsDiagramGeneratorDisabled);

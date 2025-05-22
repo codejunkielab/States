@@ -5,17 +5,12 @@ using System.Text.RegularExpressions;
 
 public static class Extensions {
   /// <summary>
-  /// Normalizes line endings to '\n' or your endings.
-  /// Borrowed from https://github.com/HavenDV/H.Generators.Extensions (MIT)
+  /// Normalizes line endings in the input text to a specified newline character.
   /// </summary>
-  /// <param name="text">Text to normalize.</param>
-  /// <param name="newLine">'\n' by default</param>
-  /// <returns>String with normalized line endings.</returns>
-  /// <exception cref="ArgumentNullException"></exception>
-  public static string NormalizeLineEndings(
-    this string text,
-    string? newLine = null
-  ) {
+  /// <param name="text">The input text to normalize. Cannot be null.</param>
+  /// <param name="newLine">The newline character to use. Defaults to the system's environment newline character if not specified.</param>
+  /// <returns>A string with normalized line endings.</returns>
+  public static string NormalizeLineEndings(this string text, string? newLine = null) {
     newLine ??= Environment.NewLine;
     return text
       .Replace("\r\n", "\n")
@@ -24,13 +19,12 @@ public static class Extensions {
   }
 
   /// <summary>
-  /// Replaces white-space only lines with empty lines and replaces subsequent
-  /// spans of empty lines at least 3 long with a single empty line.
+  /// Cleans the input text by replacing lines containing only white spaces with empty lines.
+  /// Additionally, it reduces consecutive empty lines (three or more) to a single empty line.
   /// </summary>
-  /// <param name="text">Text to clean.</param>
-  /// <param name="newLine">Newline character. Leave blank for environment
-  /// default.</param>
-  /// <returns>Cleaned string.</returns>
+  /// <param name="text">The input text to clean. Cannot be null.</param>
+  /// <param name="newLine">The newline character to use. Defaults to the system's environment newline character if not specified.</param>
+  /// <returns>A cleaned string with normalized and reduced empty lines.</returns>
   public static string Clean(this string text, string? newLine = null) {
     newLine ??= Environment.NewLine;
     var value = text.NormalizeLineEndings();

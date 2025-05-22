@@ -6,32 +6,41 @@ using System.Diagnostics.CodeAnalysis;
 public abstract partial class StateChart<TState> {
   /// <summary>Represents a transition to a new state.</summary>
   public readonly struct Transition {
-    /// <summary>State to transition to.</summary>
+    /// <summary>
+    /// Gets the target state to which the transition is directed.
+    /// </summary>
     public TState State { get; }
 
-    /// <summary>Don't use.</summary>
+    /// <summary>
+    /// Constructor for internal use only. Do not instantiate transitions directly.
+    /// </summary>
     [ExcludeFromCodeCoverage]
-    [Obsolete(
-      "Do not instantiate transitions yourself. Use To<T> or ToSelf()",
-      error: true
-    )]
+    [Obsolete("This constructor is for internal use only. Use To<T>() or ToSelf() instead.", error: true)]
     public Transition() {
-      throw new NotSupportedException(
-        "Transition should not be instantiated without a state."
-      );
+      throw new NotSupportedException("This constructor is for internal use only. Use To<T>() or ToSelf() instead.");
     }
 
-    /// <summary>Creates a new state transition.</summary>
-    /// <param name="state"><inheritdoc cref="State" path="/summary" /></param>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Transition"/> struct.
+    /// </summary>
+    /// <param name="state">
+    /// The target state for the transition.
+    /// </param>
     internal Transition(TState state) {
       State = state;
     }
 
     /// <summary>
-    /// Performs an action on the state before transitioning to it.
+    /// Executes a specified action on the target state before completing the transition.
+    /// This allows for additional setup or validation logic to be applied.
     /// </summary>
-    /// <param name="action">Action to perform.</param>
-    /// <returns>The same transition.</returns>
+    /// <param name="action">
+    /// The action to perform on the target state. This action is executed
+    /// immediately and receives the target state as its parameter.
+    /// </param>
+    /// <returns>
+    /// Returns the current <see cref="Transition"/> instance, enabling method chaining.
+    /// </returns>
     public Transition With(Action<TState> action) {
       action(State);
       return this;

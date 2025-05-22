@@ -3,24 +3,27 @@ namespace CodeJunkie.SourceGeneratorUtils;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
+/// <summary>
+/// Constants for the StateChart diagram generator.
+/// </summary>
 public class Constants {
-  /// <summary>Spaces per tab. Adjust to your generator's liking.</summary>
-  public static int SPACES_PER_INDENT = 2;
+  /// <summary>
+  /// The name of the attribute used to mark classes as state charts.
+  /// </summary>
+  public static int SpacesPerIndent = 2;
 
-  public const string DISABLE_CSPROJ_PROP = "StateChartsDiagramGeneratorDisabled";
-  public const string STATE_CHART_GET_INITIAL_STATE = "GetInitialState";
-  public const string STATE_CHART_STATE_OUTPUT = "Output";
-  public const string STATE_CHART_STATE_LOGIC_ON_ENTER = "OnEnter";
-  public const string STATE_CHART_STATE_LOGIC_ON_EXIT = "OnExit";
-  public const string STATE_CHART_INPUT_INTERFACE_ID = "global::CodeJunkie.StateChart.StateChart.IGet";
-  public const string STATE_CHART_ATTRIBUTE_NAME = "StateChart";
-  public const string STATE_CHART_ATTRIBUTE_NAME_FULL = "StateChartAttribute";
+  public const string DisableCsprojProp = "StateChartsDiagramGeneratorDisabled";
+  public const string StateChartGetInitialState = "GetInitialState";
+  public const string StateChartStateOutput = "Output";
+  public const string StateChartStateLogicOnEnter = "OnEnter";
+  public const string StateChartStateLogicOnExit = "OnExit";
+  public const string StateChartInputInterfaceId = "global::CodeJunkie.StateChart.StateChart.IGet";
+  public const string StateChartAttributeName = "StateChart";
+  public const string StateChartAttributeNameFull = "StateChartAttribute";
 
   /// <summary>
-  /// A dictionary of source code that must be injected into the compilation
-  /// regardless of whether or not the user has taken advantage of any of the
-  /// other features of this source generator.
+  /// The name of the attribute used to mark classes as state charts.
   /// </summary>
-  public static readonly ImmutableDictionary<string, string>
-    PostInitializationSources = new Dictionary<string, string>() { }.ToImmutableDictionary();
+  public static readonly ImmutableDictionary<string, string> PostInitializationSources =
+    new Dictionary<string, string>() { }.ToImmutableDictionary();
 }

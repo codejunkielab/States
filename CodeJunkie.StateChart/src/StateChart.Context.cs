@@ -8,26 +8,21 @@ public abstract partial class StateChart<TState> {
     public StateChart<TState> Logic { get; }
 
     /// <summary>
-    /// Creates a new states context for the given states.
+    /// Initializes a new context for the specified state chart.
     /// </summary>
-    /// <param name="logic">State chart.</param>
-    public DefaultContext(
-      StateChart<TState> logic
-    ) {
+    /// <param name="logic">The state chart logic associated with this context.</param>
+    public DefaultContext(StateChart<TState> logic) {
       Logic = logic;
     }
 
     /// <inheritdoc />
-    public void Input<TInputType>(in TInputType input)
-      where TInputType : struct => Logic.Input(input);
+    public void Input<TInputType>(in TInputType input) where TInputType : struct => Logic.Input(input);
 
     /// <inheritdoc />
-    public void Output<TOutputType>(in TOutputType output)
-      where TOutputType : struct => Logic.OutputValue(output);
+    public void Output<TOutputType>(in TOutputType output) where TOutputType : struct => Logic.OutputValue(output);
 
     /// <inheritdoc />
-    public TDataType Get<TDataType>() where TDataType : class =>
-      Logic.Get<TDataType>();
+    public TDataType Get<TDataType>() where TDataType : class => Logic.Get<TDataType>();
 
     /// <inheritdoc />
     public void AddError(Exception e) => Logic.AddError(e);
@@ -46,46 +41,38 @@ public abstract partial class StateChart<TState> {
     public void Clear() => Context = null;
     public Action<Exception>? OnError =>
       Context is DefaultContext defaultContext
-        ? defaultContext.Logic.AddError : null;
+      ? defaultContext.Logic.AddError : null;
 
     /// <inheritdoc />
     public void Input<TInputType>(in TInputType input)
       where TInputType : struct {
-      if (Context is not IContext context) {
-        throw new InvalidOperationException(
-          "Cannot add input to a states with an uninitialized context."
-        );
-      }
+        if (Context is not IContext context) {
+          throw new InvalidOperationException("Cannot add input to a state with an uninitialized context.");
+        }
 
-      context.Input(input);
-    }
+        context.Input(input);
+      }
 
     /// <inheritdoc />
     public void Output<TOutputType>(in TOutputType output)
-    where TOutputType : struct {
-      if (Context is not { } context) {
-        throw new InvalidOperationException(
-          "Cannot add output to a states with an uninitialized context."
-        );
-      }
+      where TOutputType : struct {
+        if (Context is not { } context) {
+          throw new InvalidOperationException("Cannot add output to a state with an uninitialized context.");
+        }
 
-      context.Output(in output);
-    }
+        context.Output(in output);
+      }
 
     /// <inheritdoc />
     public TDataType Get<TDataType>() where TDataType : class =>
       Context is not IContext context
-        ? throw new InvalidOperationException(
-          "Cannot get value from a states with an uninitialized context."
-        )
-        : context.Get<TDataType>();
+      ? throw new InvalidOperationException("Cannot retrieve a value from a state with an uninitialized context.")
+      : context.Get<TDataType>();
 
     /// <inheritdoc />
     public void AddError(Exception e) {
       if (Context is not IContext context) {
-        throw new InvalidOperationException(
-          "Cannot add error to a states with an uninitialized context."
-        );
+        throw new InvalidOperationException("Cannot add an error to a state with an uninitialized context.");
       }
 
       context.AddError(e);
