@@ -5,7 +5,7 @@ using CodeJunkie.Log;
 using CodeJunkie.Metadata;
 using CodeJunkie.StateChart;
 
-[Meta, StateChart(typeof(State), Diagram = true)]
+[Meta, StateChart(typeof(State), Diagram = true, DiagramFormats = DiagramFormat.All)]
 public partial class Timer : StateChart<Timer.State> {
 	public static class Input {
 		public readonly record struct PowerButtonPressed;

@@ -132,6 +132,18 @@ public record StateChartOutputResult(string FilePath, string Name, string Conten
   : IStateChartResult;
 
 /// <summary>
+/// Mermaid output result.
+/// </summary>
+public record MermaidOutputResult(string FilePath, string Name, string Content)
+  : IStateChartResult;
+
+/// <summary>
+/// Markdown output result.
+/// </summary>
+public record MarkdownOutputResult(string FilePath, string Name, string Content)
+  : IStateChartResult;
+
+/// <summary>
 /// State chart graph data.
 /// </summary>
 public record StateChartGraphData(ImmutableDictionary<string, StateChartInput> Inputs,

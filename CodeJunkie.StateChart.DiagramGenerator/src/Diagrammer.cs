@@ -14,6 +14,19 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 /// <summary>
+/// Local copy of DiagramFormat enum for source generator independence.
+/// Must match the definition in CodeJunkie.StateChart.
+/// </summary>
+[Flags]
+internal enum DiagramFormat {
+  None = 0,
+  PlantUML = 1,
+  Mermaid = 2,
+  Markdown = 4,
+  All = PlantUML | Mermaid | Markdown
+}
+
+/// <summary>
 /// Generates state chart diagrams based on annotated classes.
 /// </summary>
 [Generator]
@@ -45,15 +58,25 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
     var stateChartCandidates = context.SyntaxProvider.CreateSyntaxProvider(
       predicate: static (SyntaxNode node, CancellationToken _) =>
         IsStateChartCandidate(node),
-      transform: (GeneratorSyntaxContext context, CancellationToken token) =>
-        GetStateGraph(
-          (ClassDeclarationSyntax)context.Node, context.SemanticModel, token))
-    .Where(stateChartImplementation => stateChartImplementation is not null)
+      transform: (GeneratorSyntaxContext context, CancellationToken token) => {
+        var implementation = GetStateGraph(
+          (ClassDeclarationSyntax)context.Node, context.SemanticModel, token);
+        if (implementation == null) return (implementation: (StateChartImplementation?)null, formats: DiagramFormat.None);
+        
+        var symbol = context.SemanticModel.GetDeclaredSymbol((ClassDeclarationSyntax)context.Node, token);
+        if (symbol is not INamedTypeSymbol namedSymbol) return (implementation: (StateChartImplementation?)null, formats: DiagramFormat.None);
+        
+        var formats = GetDiagramFormats(namedSymbol);
+        return (implementation, formats);
+      })
+    .Where(result => result.implementation is not null)
     .Combine(options)
     .Select(
-      (value, token) => new GenerationData(
-        Options: value.Right,
-        Result: ConvertStateGraphToUml(value.Right, value.Left!, token)));
+      (value, token) => {
+        var (implementation, formats) = value.Left;
+        var results = GenerateDiagrams(value.Right, implementation!, formats, token);
+        return new GenerationData(Results: results, Options: value.Right);
+      });
 
     context.RegisterImplementationSourceOutput(
       source: stateChartCandidates,
@@ -61,21 +84,25 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
         var disabled = data.Options.StateChartsDiagramGeneratorDisabled;
         if (disabled) { return; }
 
-        var possibleResult = data.Result;
+        foreach (var result in data.Results) {
+          var (filePath, name, content, extension) = result switch {
+            StateChartOutputResult r => (r.FilePath, r.Name, r.Content, ".puml"),
+            MermaidOutputResult r => (r.FilePath, r.Name, r.Content, ".mermaid"),
+            MarkdownOutputResult r => (r.FilePath, r.Name, r.Content, ".md"),
+            _ => (null, null, null, null)
+          };
 
-        if (possibleResult is not StateChartOutputResult result) { return; }
+          if (filePath == null || content == null) continue;
 
-        var destFile = result.FilePath;
-        var content = result.Content;
-
-        try {
-          File.WriteAllText(destFile, content);
-        }
-        catch (Exception) {
-          context.AddSource(
-            hintName: $"{result.Name}.puml.g.cs",
-            source: string.Join("\n", result.Content.Split('\n').Select(line => $"// {line}"))
-          );
+          try {
+            File.WriteAllText(filePath, content);
+          }
+          catch (Exception) {
+            context.AddSource(
+              hintName: $"{name}{extension}.g.cs",
+              source: string.Join("\n", content.Split('\n').Select(line => $"// {line}"))
+            );
+          }
         }
       }
     );
@@ -92,12 +119,46 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
       .Any(attribute =>
         attribute.Name.ToString() == Constants.StateChartAttributeName &&
         attribute.ArgumentList is AttributeArgumentListSyntax argumentList &&
-        argumentList.Arguments.Any(
+        (argumentList.Arguments.Any(
           arg =>
             arg.NameEquals is NameEqualsSyntax nameEquals &&
             nameEquals.Name.ToString() == "Diagram" &&
             arg.Expression is LiteralExpressionSyntax literalExpression &&
-            literalExpression.Token.ValueText == "true"));
+            literalExpression.Token.ValueText == "true") ||
+         argumentList.Arguments.Any(
+          arg =>
+            arg.NameEquals is NameEqualsSyntax nameEquals &&
+            nameEquals.Name.ToString() == "DiagramFormats")));
+
+  /// <summary>
+  /// Gets the requested diagram formats from the StateChart attribute.
+  /// </summary>
+  private static DiagramFormat GetDiagramFormats(INamedTypeSymbol symbol) {
+    var attribute = symbol.GetAttributes()
+      .FirstOrDefault(attr => attr.AttributeClass?.Name == Constants.StateChartAttributeNameFull);
+    
+    if (attribute == null) {
+      return DiagramFormat.None;
+    }
+    
+    // Check for DiagramFormats property
+    var diagramFormatsArg = attribute.NamedArguments
+      .FirstOrDefault(arg => arg.Key == "DiagramFormats");
+    
+    if (diagramFormatsArg.Value.Value != null) {
+      return (DiagramFormat)(int)diagramFormatsArg.Value.Value;
+    }
+    
+    // Fall back to Diagram property for backward compatibility
+    var diagramArg = attribute.NamedArguments
+      .FirstOrDefault(arg => arg.Key == "Diagram");
+    
+    if (diagramArg.Value.Value is bool diagram && diagram) {
+      return DiagramFormat.PlantUML;
+    }
+    
+    return DiagramFormat.None;
+  }
 
   /// <summary>
   /// Retrieves the state chart implementation from the provided class declaration.
@@ -121,10 +182,11 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
                                                       SemanticModel model,
                                                       CancellationToken token) {
     var filePath = stateChartClassDecl.SyntaxTree.FilePath;
-    var destFile = Path.ChangeExtension(filePath, ".g.puml");
+    var baseFilePath = Path.GetDirectoryName(filePath) + Path.DirectorySeparatorChar + 
+                       Path.GetFileNameWithoutExtension(filePath);
 
     Log.Print($"File path: {filePath}");
-    Log.Print($"Dest file: {destFile}");
+    Log.Print($"Base file path: {baseFilePath}");
 
     var semanticSymbol = model.GetDeclaredSymbol(stateChartClassDecl, token);
 
@@ -239,7 +301,7 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
     }
 
     var implementation = new StateChartImplementation(
-      FilePath: destFile,
+      FilePath: baseFilePath,
       Id: CodeService.GetNameFullyQualified(symbol, symbol.Name),
       Name: symbol.Name,
       InitialStateIds: [.. initialStateIds],
@@ -253,72 +315,265 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
   }
 
   /// <summary>
+  /// Generates all requested diagram formats based on the StateChart implementation.
+  /// </summary>
+  private IReadOnlyList<IStateChartResult> GenerateDiagrams(GenerationOptions options,
+                                                           StateChartImplementation implementation,
+                                                           DiagramFormat formats,
+                                                           CancellationToken token) {
+    var results = new List<IStateChartResult>();
+    
+    if (formats.HasFlag(DiagramFormat.PlantUML)) {
+      results.Add(ConvertStateGraphToUml(options, implementation, token));
+    }
+    
+    if (formats.HasFlag(DiagramFormat.Mermaid)) {
+      results.Add(ConvertStateGraphToMermaid(options, implementation, token));
+    }
+    
+    if (formats.HasFlag(DiagramFormat.Markdown)) {
+      results.Add(ConvertStateGraphToMarkdown(options, implementation, token));
+    }
+    
+    return results;
+  }
+
+  /// <summary>
   /// Converts the state graph to UML format.
   /// </summary>
   public IStateChartResult ConvertStateGraphToUml(GenerationOptions options,
                                                   StateChartImplementation implementation,
                                                   CancellationToken token) {
-    var sb = new StringBuilder();
+    var transitions = CollectTransitions(implementation);
+    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    
+    var transitionLines = transitions
+      .Select(t => $"{t.FromStateId} --> {t.ToStateId} : {t.InputName}")
+      .OrderBy(t => t)
+      .ToList();
 
-    var graph = implementation.Graph;
+    var initialStates = implementation.InitialStateIds
+      .OrderBy(id => id)
+      .Select(id => "[*] --> " + implementation.StatesById[id].UmlId)
+      .ToList();
 
-    var transitions = new List<string>();
-    foreach (
-      var stateId in implementation.StatesById.OrderBy(id => id.Key)
-    ) {
-      var state = stateId.Value;
-      foreach (
-        var inputToStates in state.Data.InputToStates.OrderBy(id => id.Key)
-      ) {
-        var inputId = inputToStates.Key;
-        foreach (var destStateId in inputToStates.Value.OrderBy(id => id)) {
-          var dest = implementation.StatesById[destStateId];
-          transitions.Add(
-            $"{state.UmlId} --> " +
-            $"{dest.UmlId} : {state.Data.Inputs[inputId].Name}"
-          );
-        }
-      }
-    }
-
-    transitions.Sort();
-
-    var initialStates = new List<string>();
-    // State descriptions are added at the end of the document outside
-    // of the state declaration. Mermaid doesn't support state descriptions
-    // when they are nested inside the state, so we just flatten it out.
-    //
-    // In our case, we use state descriptions to show what outputs are produced
-    // by the state, and when.
     var stateDescriptions = new List<string>();
-
-    foreach (var initialStateId in implementation.InitialStateIds.OrderBy(id => id)) {
-      initialStates.Add(
-        "[*] --> " + implementation.StatesById[initialStateId].UmlId
-      );
-    }
-
     var states = WriteGraph(implementation.Graph, implementation, stateDescriptions, 0);
 
-    stateDescriptions.Sort();
+    var outputDescriptions = stateOutputs
+      .Select(o => $"{o.StateId} : {o.Context} → {o.Outputs}")
+      .OrderBy(o => o)
+      .ToList();
 
     var text = Format(
         $"""
         @startuml {implementation.Name}
         {states}
 
-        {transitions}
+        {transitionLines}
 
-        {stateDescriptions}
+        {outputDescriptions}
 
         {initialStates}
         @enduml
         """);
 
+    var filePath = implementation.FilePath + ".g.puml";
     return new StateChartOutputResult(
-      FilePath: implementation.FilePath,
+      FilePath: filePath,
       Name: implementation.Name,
       Content: text);
+  }
+
+  /// <summary>
+  /// Converts the state graph to Mermaid format.
+  /// </summary>
+  public IStateChartResult ConvertStateGraphToMermaid(GenerationOptions options,
+                                                      StateChartImplementation implementation,
+                                                      CancellationToken token) {
+    var transitions = CollectTransitions(implementation);
+    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    
+    var transitionLines = transitions
+      .Select(t => $"    {t.FromStateId} --> {t.ToStateId} : {t.InputName}")
+      .OrderBy(t => t)
+      .ToList();
+
+    var initialStates = implementation.InitialStateIds
+      .OrderBy(id => id)
+      .Select(id => $"    [*] --> {implementation.StatesById[id].UmlId}")
+      .ToList();
+
+    var mermaidStates = WriteMermaidGraph(implementation.Graph, implementation, 1);
+
+    // Mermaid supports state descriptions
+    var outputDescriptions = stateOutputs
+      .Select(o => $"    {o.StateId} : {o.Context} → {o.Outputs}")
+      .OrderBy(o => o)
+      .ToList();
+
+    var text = Format(
+        $"""
+        ```mermaid
+        stateDiagram-v2
+        {mermaidStates}
+        {initialStates}
+        {transitionLines}
+        {outputDescriptions}
+        ```
+        """);
+
+    var filePath = implementation.FilePath + ".g.mermaid";
+    return new MermaidOutputResult(
+      FilePath: filePath,
+      Name: implementation.Name,
+      Content: text);
+  }
+
+  /// <summary>
+  /// Writes the state graph in Mermaid format.
+  /// </summary>
+  private IEnumerable<string> WriteMermaidGraph(StateChartGraph graph,
+                                                StateChartImplementation impl,
+                                                int indentLevel) {
+    var lines = new List<string>();
+    var indent = new string(' ', indentLevel * 4);
+    
+    var isRoot = graph == impl.Graph;
+    var hasChildren = graph.Children.Count > 0;
+    
+    if (hasChildren) {
+      if (isRoot) {
+        lines.Add($"{indent}state \"{impl.Name} State\" as {graph.UmlId} {{");
+      } else {
+        lines.Add($"{indent}state \"{graph.Name}\" as {graph.UmlId} {{");
+      }
+      
+      foreach (var child in graph.Children.OrderBy(child => child.Name)) {
+        lines.AddRange(WriteMermaidGraph(child, impl, indentLevel + 1));
+      }
+      
+      lines.Add($"{indent}}}");
+    } else {
+      if (isRoot) {
+        lines.Add($"{indent}state \"{impl.Name} State\" as {graph.UmlId}");
+      } else {
+        lines.Add($"{indent}state \"{graph.Name}\" as {graph.UmlId}");
+      }
+    }
+    
+    return lines;
+  }
+
+  /// <summary>
+  /// Converts the state graph to Markdown documentation format.
+  /// </summary>
+  public IStateChartResult ConvertStateGraphToMarkdown(GenerationOptions options,
+                                                       StateChartImplementation implementation,
+                                                       CancellationToken token) {
+    var transitions = CollectTransitions(implementation);
+    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    
+    var sb = new StringBuilder();
+    
+    // Header
+    sb.AppendLine($"# {implementation.Name} State Chart");
+    sb.AppendLine();
+    sb.AppendLine($"Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+    sb.AppendLine();
+    
+    // State Hierarchy
+    sb.AppendLine("## State Hierarchy");
+    sb.AppendLine();
+    WriteMarkdownStateHierarchy(implementation.Graph, implementation, sb, 0);
+    sb.AppendLine();
+    
+    // Initial States
+    if (implementation.InitialStateIds.Any()) {
+      sb.AppendLine("## Initial States");
+      sb.AppendLine();
+      foreach (var initialStateId in implementation.InitialStateIds.OrderBy(id => id)) {
+        var state = implementation.StatesById[initialStateId];
+        sb.AppendLine($"- **{state.Name}**");
+      }
+      sb.AppendLine();
+    }
+    
+    // Transitions Table
+    if (transitions.Any()) {
+      sb.AppendLine("## State Transitions");
+      sb.AppendLine();
+      sb.AppendLine("| From State | Input | To State |");
+      sb.AppendLine("|------------|-------|----------|");
+      foreach (var transition in transitions.OrderBy(t => t.FromStateId).ThenBy(t => t.InputName)) {
+        var fromState = implementation.StatesById.First(s => s.Value.UmlId == transition.FromStateId).Value;
+        var toState = implementation.StatesById.First(s => s.Value.UmlId == transition.ToStateId).Value;
+        sb.AppendLine($"| {fromState.Name} | {transition.InputName} | {toState.Name} |");
+      }
+      sb.AppendLine();
+    }
+    
+    // Outputs Table
+    if (stateOutputs.Any()) {
+      sb.AppendLine("## State Outputs");
+      sb.AppendLine();
+      sb.AppendLine("| State | Context | Outputs |");
+      sb.AppendLine("|-------|---------|---------|");
+      foreach (var output in stateOutputs.OrderBy(o => o.StateId).ThenBy(o => o.Context)) {
+        var state = implementation.StatesById.First(s => s.Value.UmlId == output.StateId).Value;
+        sb.AppendLine($"| {state.Name} | {output.Context} | {output.Outputs} |");
+      }
+      sb.AppendLine();
+    }
+    
+    // Mermaid Diagram
+    sb.AppendLine("## State Diagram");
+    sb.AppendLine();
+    
+    // Generate Mermaid content without the markdown code fence
+    var mermaidResult = ConvertStateGraphToMermaid(options, implementation, token) as MermaidOutputResult;
+    if (mermaidResult != null) {
+      // The mermaid content already has the code fence, so just append it
+      sb.Append(mermaidResult.Content);
+    }
+    
+    var filePath = implementation.FilePath + ".g.md";
+    return new MarkdownOutputResult(
+      FilePath: filePath,
+      Name: implementation.Name,
+      Content: sb.ToString());
+  }
+
+  /// <summary>
+  /// Writes the state hierarchy in Markdown format.
+  /// </summary>
+  private void WriteMarkdownStateHierarchy(StateChartGraph graph,
+                                          StateChartImplementation impl,
+                                          StringBuilder sb,
+                                          int level) {
+    var indent = new string(' ', level * 2);
+    var bullet = level == 0 ? "-" : "-";
+    
+    var isRoot = graph == impl.Graph;
+    var displayName = isRoot ? $"{impl.Name} State" : graph.Name;
+    
+    sb.AppendLine($"{indent}{bullet} **{displayName}**");
+    
+    // Add outputs if any
+    if (graph.Data.Outputs.Any()) {
+      foreach (var outputContext in graph.Data.Outputs.Keys.OrderBy(key => key.DisplayName)) {
+        var outputs = graph.Data.Outputs[outputContext]
+          .Select(output => output.Name)
+          .OrderBy(output => output);
+        var outputList = string.Join(", ", outputs);
+        sb.AppendLine($"{indent}  - {outputContext.DisplayName}: {outputList}");
+      }
+    }
+    
+    // Recursively write children
+    foreach (var child in graph.Children.OrderBy(child => child.Name)) {
+      WriteMarkdownStateHierarchy(child, impl, sb, level + 1);
+    }
   }
 
   /// <summary>
@@ -452,6 +707,57 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
       Inputs: inputs,
       InputToStates: inputToStates,
       Outputs: outputs);
+  }
+
+  /// <summary>
+  /// Common data structures for state chart diagram generation.
+  /// </summary>
+  private record StateTransition(string FromStateId, string ToStateId, string InputName);
+  
+  private record StateOutput(string StateId, string Context, string Outputs);
+
+  /// <summary>
+  /// Collects all transitions from the state chart implementation.
+  /// </summary>
+  private List<StateTransition> CollectTransitions(StateChartImplementation implementation) {
+    var transitions = new List<StateTransition>();
+    
+    foreach (var stateId in implementation.StatesById.OrderBy(id => id.Key)) {
+      var state = stateId.Value;
+      foreach (var inputToStates in state.Data.InputToStates.OrderBy(id => id.Key)) {
+        var inputId = inputToStates.Key;
+        foreach (var destStateId in inputToStates.Value.OrderBy(id => id)) {
+          transitions.Add(new StateTransition(
+            state.UmlId,
+            implementation.StatesById[destStateId].UmlId,
+            state.Data.Inputs[inputId].Name
+          ));
+        }
+      }
+    }
+    
+    return transitions;
+  }
+
+  /// <summary>
+  /// Collects all state outputs from the state chart implementation.
+  /// </summary>
+  private List<StateOutput> CollectStateOutputs(StateChartGraph graph, List<StateOutput>? outputs = null) {
+    outputs ??= new List<StateOutput>();
+    
+    foreach (var outputContext in graph.Data.Outputs.Keys.OrderBy(key => key.DisplayName)) {
+      var outputNames = graph.Data.Outputs[outputContext]
+        .Select(output => output.Name)
+        .OrderBy(output => output);
+      var line = string.Join(", ", outputNames);
+      outputs.Add(new StateOutput(graph.UmlId, outputContext.DisplayName, line));
+    }
+    
+    foreach (var child in graph.Children.OrderBy(child => child.Name)) {
+      CollectStateOutputs(child, outputs);
+    }
+    
+    return outputs;
   }
 
   private IEnumerable<string> WriteGraph(StateChartGraph graph,

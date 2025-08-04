@@ -3,6 +3,37 @@ namespace CodeJunkie.StateChart;
 using System;
 
 /// <summary>
+/// Specifies the output formats for state chart diagram generation.
+/// </summary>
+[Flags]
+public enum DiagramFormat {
+  /// <summary>
+  /// No diagram generation.
+  /// </summary>
+  None = 0,
+  
+  /// <summary>
+  /// Generate PlantUML diagram (.puml file).
+  /// </summary>
+  PlantUML = 1,
+  
+  /// <summary>
+  /// Generate Mermaid diagram (.mermaid file).
+  /// </summary>
+  Mermaid = 2,
+  
+  /// <summary>
+  /// Generate Markdown documentation (.md file) with embedded Mermaid diagram.
+  /// </summary>
+  Markdown = 4,
+  
+  /// <summary>
+  /// Generate all supported diagram formats.
+  /// </summary>
+  All = PlantUML | Mermaid | Markdown
+}
+
+/// <summary>
 /// Attribute to specify the state type and diagram generation for a state chart.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
@@ -17,6 +48,11 @@ public sealed class StateChartAttribute : Attribute {
   /// Indicates whether a diagram should be generated for this state chart. Defaults to false.
   /// </summary>
   public bool Diagram { get; set; }
+
+  /// <summary>
+  /// Specifies which diagram formats to generate. When set, this overrides the Diagram property.
+  /// </summary>
+  public DiagramFormat DiagramFormats { get; set; } = DiagramFormat.None;
 
   /// <summary>
   /// Initializes a new instance of the <see cref="StateChartAttribute"/> class.
