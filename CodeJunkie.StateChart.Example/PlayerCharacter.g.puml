@@ -1,0 +1,67 @@
+@startuml PlayerCharacter
+state "PlayerCharacter State" as CodeJunkie_StateChart_Example_PlayerCharacter_State #E6B0AA {
+  state "Attacking" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking #FFB6C1 {
+    state "HeavyAttack" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_HeavyAttack #FFE4B5
+    state "LightAttack" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_LightAttack #DDA0DD
+  }
+  state "Dead" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead #FFB6C1
+  state "Idle" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle #FFB6C1
+  state "InAir" as CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir #B19CD9 {
+    state "Falling" as CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Falling #A9DFBF
+    state "Jumping" as CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Jumping #B19CD9
+  }
+  state "Moving" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving #DDA0DD {
+    state "Crouching" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching #FFB6C1
+    state "Running" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running #85C1E2
+    state "Walking" as CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking #45B7D1
+  }
+}
+
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : AttackCompletedInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_HeavyAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_LightAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Jumping : JumpInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir -[#B19CD9]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_HeavyAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir -[#B19CD9]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_LightAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir -[#B19CD9]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir -[#B19CD9]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : LandInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir -[#B19CD9]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_HeavyAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_LightAttack : AttackInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : StopMoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Jumping : JumpInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving -[#DDA0DD]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving : TakeDamageInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching -[#FFB6C1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running -[#85C1E2]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running -[#85C1E2]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running -[#85C1E2]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking -[#45B7D1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking -[#45B7D1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running : MoveInput
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking -[#45B7D1]-> CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking : MoveInput
+
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking : <color:#FFB6C1>OnTakeDamageInput → DamageTaken</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_HeavyAttack : <color:#FFE4B5>OnEnter → AnimationTriggered, AttackPerformed</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Attacking_LightAttack : <color:#DDA0DD>OnEnter → AnimationTriggered, AttackPerformed</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Dead : <color:#FFB6C1>OnEnter → AnimationTriggered, CharacterDied</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : <color:#FFB6C1>OnEnter → AnimationTriggered, MovementStateChanged</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle : <color:#FFB6C1>OnTakeDamageInput → DamageTaken</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir : <color:#B19CD9>OnLandInput → Landed</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir : <color:#B19CD9>OnTakeDamageInput → DamageTaken</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Falling : <color:#A9DFBF>OnEnter → AnimationTriggered</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_InAir_Jumping : <color:#B19CD9>OnEnter → AnimationTriggered, JumpTriggered</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving : <color:#DDA0DD>OnTakeDamageInput → DamageTaken</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Crouching : <color:#FFB6C1>OnEnter → AnimationTriggered, MovementStateChanged</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Running : <color:#85C1E2>OnEnter → AnimationTriggered, MovementStateChanged</color>
+CodeJunkie_StateChart_Example_PlayerCharacter_State_Moving_Walking : <color:#45B7D1>OnEnter → AnimationTriggered, MovementStateChanged</color>
+
+[*] --> CodeJunkie_StateChart_Example_PlayerCharacter_State_Idle
+@enduml

@@ -339,16 +339,81 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
   }
 
   /// <summary>
+  /// Computes a deterministic hash code for a string using DJB2 algorithm.
+  /// This ensures consistent hash values across different .NET runtime versions.
+  /// </summary>
+  private static int GetDeterministicHashCode(string str) {
+    unchecked {
+      int hash = 5381;
+      foreach (char c in str) {
+        hash = ((hash << 5) + hash) + c; // hash * 33 + c
+      }
+      return hash;
+    }
+  }
+
+  /// <summary>
+  /// Generates a color palette for states based on their IDs.
+  /// Uses deterministic hash-based generation for consistency across regenerations.
+  /// </summary>
+  private Dictionary<string, string> GenerateStateColors(StateChartImplementation implementation) {
+    var colors = new Dictionary<string, string>();
+    
+    // Predefined color palette with good contrast and visibility
+    var colorPalette = new[] {
+      "#FF6B6B", // Red
+      "#4ECDC4", // Teal
+      "#45B7D1", // Blue
+      "#96CEB4", // Green
+      "#FFEAA7", // Yellow
+      "#DDA0DD", // Plum
+      "#98D8C8", // Mint
+      "#FFB6C1", // Pink
+      "#87CEEB", // Sky Blue
+      "#F4A460", // Sandy Brown
+      "#B19CD9", // Purple
+      "#90EE90", // Light Green
+      "#FFE4B5", // Moccasin
+      "#E6B0AA", // Rose
+      "#85C1E2", // Light Blue
+      "#F9E79F", // Pale Yellow
+      "#D5A6BD", // Dusty Rose
+      "#A9DFBF", // Pale Green
+      "#F8C471", // Light Orange
+      "#AED6F1"  // Powder Blue
+    };
+    
+    var stateIds = implementation.StatesById.Keys.OrderBy(id => id).ToList();
+    
+    for (int i = 0; i < stateIds.Count; i++) {
+      var stateId = stateIds[i];
+      // Use deterministic hash to ensure consistent colors across different runtime versions
+      var colorIndex = Math.Abs(GetDeterministicHashCode(stateId)) % colorPalette.Length;
+      colors[stateId] = colorPalette[colorIndex];
+    }
+    
+    return colors;
+  }
+
+  /// <summary>
   /// Converts the state graph to UML format.
   /// </summary>
   public IStateChartResult ConvertStateGraphToUml(GenerationOptions options,
                                                   StateChartImplementation implementation,
                                                   CancellationToken token) {
+    var stateColors = GenerateStateColors(implementation);
     var transitions = CollectTransitions(implementation);
-    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    var stateOutputs = CollectStateOutputs(implementation.Graph, stateColors);
     
     var transitionLines = transitions
-      .Select(t => $"{t.FromStateId} --> {t.ToStateId} : {t.InputName}")
+      .Select(t => {
+        // Find the color for the source state
+        var fromStateEntry = implementation.StatesById.FirstOrDefault(s => s.Value.UmlId == t.FromStateId);
+        if (fromStateEntry.Value != null && stateColors.TryGetValue(fromStateEntry.Key, out var color)) {
+          return $"{t.FromStateId} -[{color}]-> {t.ToStateId} : {t.InputName}";
+        }
+        return $"{t.FromStateId} --> {t.ToStateId} : {t.InputName}";
+      })
       .OrderBy(t => t)
       .ToList();
 
@@ -358,10 +423,15 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
       .ToList();
 
     var stateDescriptions = new List<string>();
-    var states = WriteGraph(implementation.Graph, implementation, stateDescriptions, 0);
+    var states = WriteGraphWithColors(implementation.Graph, implementation, stateDescriptions, stateColors, 0);
 
     var outputDescriptions = stateOutputs
-      .Select(o => $"{o.StateId} : {o.Context} → {o.Outputs}")
+      .Select(o => {
+        if (!string.IsNullOrEmpty(o.Color)) {
+          return $"{o.StateId} : <color:{o.Color}>{o.Context} → {o.Outputs}</color>";
+        }
+        return $"{o.StateId} : {o.Context} → {o.Outputs}";
+      })
       .OrderBy(o => o)
       .ToList();
 
@@ -392,7 +462,7 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
                                                       StateChartImplementation implementation,
                                                       CancellationToken token) {
     var transitions = CollectTransitions(implementation);
-    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    var stateOutputs = CollectStateOutputs(implementation.Graph, null);
     
     var transitionLines = transitions
       .Select(t => $"    {t.FromStateId} --> {t.ToStateId} : {t.InputName}")
@@ -472,7 +542,7 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
                                                        StateChartImplementation implementation,
                                                        CancellationToken token) {
     var transitions = CollectTransitions(implementation);
-    var stateOutputs = CollectStateOutputs(implementation.Graph);
+    var stateOutputs = CollectStateOutputs(implementation.Graph, null);
     
     var sb = new StringBuilder();
     
@@ -714,7 +784,7 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
   /// </summary>
   private record StateTransition(string FromStateId, string ToStateId, string InputName);
   
-  private record StateOutput(string StateId, string Context, string Outputs);
+  private record StateOutput(string StateId, string Context, string Outputs, string? Color = null);
 
   /// <summary>
   /// Collects all transitions from the state chart implementation.
@@ -742,7 +812,7 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
   /// <summary>
   /// Collects all state outputs from the state chart implementation.
   /// </summary>
-  private List<StateOutput> CollectStateOutputs(StateChartGraph graph, List<StateOutput>? outputs = null) {
+  private List<StateOutput> CollectStateOutputs(StateChartGraph graph, Dictionary<string, string>? stateColors = null, List<StateOutput>? outputs = null) {
     outputs ??= new List<StateOutput>();
     
     foreach (var outputContext in graph.Data.Outputs.Keys.OrderBy(key => key.DisplayName)) {
@@ -750,43 +820,47 @@ public class Diagrammer : CodeJunkieGenerator, IIncrementalGenerator {
         .Select(output => output.Name)
         .OrderBy(output => output);
       var line = string.Join(", ", outputNames);
-      outputs.Add(new StateOutput(graph.UmlId, outputContext.DisplayName, line));
+      var color = stateColors?.TryGetValue(graph.Id, out var stateColor) == true ? stateColor : null;
+      outputs.Add(new StateOutput(graph.UmlId, outputContext.DisplayName, line, color));
     }
     
     foreach (var child in graph.Children.OrderBy(child => child.Name)) {
-      CollectStateOutputs(child, outputs);
+      CollectStateOutputs(child, stateColors, outputs);
     }
     
     return outputs;
   }
 
-  private IEnumerable<string> WriteGraph(StateChartGraph graph,
-                                         StateChartImplementation impl,
-                                         List<string> stateDescriptions,
-                                         int t) {
+  private IEnumerable<string> WriteGraphWithColors(StateChartGraph graph,
+                                                   StateChartImplementation impl,
+                                                   List<string> stateDescriptions,
+                                                   Dictionary<string, string> stateColors,
+                                                   int t) {
     var lines = new List<string>();
 
     var isMultilineState = graph.Children.Count > 0;
-
     var isRoot = graph == impl.Graph;
+    
+    // Get color for this state
+    var color = stateColors.TryGetValue(graph.Id, out var stateColor) ? $" {stateColor}" : "";
 
     if (isMultilineState) {
       if (isRoot) {
-        lines.Add($"{Tab(t)}state \"{impl.Name} State\" as {graph.UmlId} {{");
+        lines.Add($"{Tab(t)}state \"{impl.Name} State\" as {graph.UmlId}{color} {{");
       }
       else {
-        lines.Add($"{Tab(t)}state \"{graph.Name}\" as {graph.UmlId} {{");
+        lines.Add($"{Tab(t)}state \"{graph.Name}\" as {graph.UmlId}{color} {{");
       }
     }
     else if (isRoot) {
-      lines.Add($"{Tab(t)}state \"{impl.Name} State\" as {graph.UmlId}");
+      lines.Add($"{Tab(t)}state \"{impl.Name} State\" as {graph.UmlId}{color}");
     }
     else {
-      lines.Add($"{Tab(t)}state \"{graph.Name}\" as {graph.UmlId}");
+      lines.Add($"{Tab(t)}state \"{graph.Name}\" as {graph.UmlId}{color}");
     }
 
     foreach (var child in graph.Children.OrderBy(child => child.Name)) {
-      lines.AddRange(WriteGraph(child, impl, stateDescriptions, t + 1));
+      lines.AddRange(WriteGraphWithColors(child, impl, stateDescriptions, stateColors, t + 1));
     }
 
     foreach (var outputContext in graph.Data.Outputs.Keys.OrderBy(key => key.DisplayName)) {

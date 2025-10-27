@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -14,6 +14,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeJunkie.StateChart.DiagramGenerator", "CodeJunkie.StateChart.DiagramGenerator\CodeJunkie.StateChart.DiagramGenerator.csproj", "{F5C44B4D-EC15-4594-8EDB-5A1185DC3E1A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeJunkie.StateChart.Example", "CodeJunkie.StateChart.Example\CodeJunkie.StateChart.Example.csproj", "{0EAE7802-8741-4187-A9FB-59829BDB371C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeJunkie.StateChart.Example.Tests", "CodeJunkie.StateChart.Example.Tests\CodeJunkie.StateChart.Example.Tests.csproj", "{C0408A95-F5E1-4509-AC9B-3917AD5CBCEF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -60,5 +62,9 @@ Global
 		{0EAE7802-8741-4187-A9FB-59829BDB371C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0EAE7802-8741-4187-A9FB-59829BDB371C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0EAE7802-8741-4187-A9FB-59829BDB371C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0408A95-F5E1-4509-AC9B-3917AD5CBCEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0408A95-F5E1-4509-AC9B-3917AD5CBCEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0408A95-F5E1-4509-AC9B-3917AD5CBCEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0408A95-F5E1-4509-AC9B-3917AD5CBCEF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

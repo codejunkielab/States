@@ -145,6 +145,19 @@ public abstract partial class StateChart<TState> : StateChartBase, IStateChart<T
     _inputs = new(this);
     Context = new DefaultContext(this);
     PreallocateStates(this);
+    
+    // Register with StateChartRegistry if monitoring is enabled and not opted out
+    if (StateChartRegistry.IsMonitoringEnabled && !IsMonitoringDisabled()) {
+      StateChartRegistry.Register(this, InstanceId);
+    }
+  }
+  
+  /// <summary>
+  /// Determines whether monitoring is disabled for this StateChart instance.
+  /// </summary>
+  /// <returns>True if the NoMonitoringAttribute is applied to this class; otherwise, false.</returns>
+  private bool IsMonitoringDisabled() {
+    return GetType().GetCustomAttributes(typeof(NoMonitoringAttribute), inherit: true).Length > 0;
   }
 
   /// <inheritdoc />
